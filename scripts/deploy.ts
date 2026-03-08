@@ -1,0 +1,32 @@
+import { ethers } from "hardhat";
+
+async function main() {
+  const [deployer] = await ethers.getSigners();
+
+  console.log("部署账号地址:", deployer.address);
+  console.log(
+    "账号 ETH 余额:",
+    (await deployer.provider!.getBalance(deployer.address)).toString()
+  );
+
+  // 1. 部署 MockUSDC（测试用 USDC，6 位小数）
+  const MockUSDC = await ethers.getContractFactory("MockUSDC");
+  const usdc = await MockUSDC.deploy();
+  await usdc.waitForDeployment();
+  const usdcAddress = await usdc.getAddress();
+  console.log("MockUSDC 部署地址:", usdcAddress);
+
+  // 2. 部署 FitCamp
+  const durationDays = 7; // 挑战天数，可按需修改
+  const FitCamp = await ethers.getContractFactory("FitCamp");
+  const fitCamp = await FitCamp.deploy(usdcAddress, durationDays);
+  await fitCamp.waitForDeployment();
+  const fitCampAddress = await fitCamp.getAddress();
+  console.log("FitCamp 部署地址:", fitCampAddress);
+}
+
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
+

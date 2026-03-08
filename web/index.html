@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FitCamp 打卡</title>
+  <!-- 使用本地 node_modules 中的 ethers，不依赖 CDN -->
+  <script src="/vendor/ethers.umd.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; max-width: 560px; margin: 24px auto; padding: 0 16px; }
+    h1 { font-size: 1.25rem; }
+    section { margin: 16px 0; padding: 12px; border: 1px solid #ddd; border-radius: 8px; }
+    label { display: block; margin-bottom: 4px; font-weight: 600; }
+    select, button { padding: 8px 12px; margin: 4px 4px 4px 0; font-size: 14px; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .info { font-size: 13px; color: #555; margin: 8px 0; }
+    .error { color: #c00; }
+    .success { color: #080; }
+  </style>
+</head>
+<body>
+  <h1>FitCamp 打卡</h1>
+
+  <section>
+    <label>当前用户</label>
+    <select id="userSelect">
+      <option value="K">K（群主）</option>
+      <option value="A">A</option>
+      <option value="B">B</option>
+      <option value="C">C</option>
+    </select>
+  </section>
+
+  <section id="kPanel">
+    <label>群主操作</label>
+    <div>
+      <button id="btnStart">开始打卡</button>
+      <button id="btnEnd">结束打卡</button>
+      <button id="btnSettle">结算</button>
+      <button id="btnWithdrawDust">提取余数</button>
+      <button id="btnSettleNoWinners">无获胜者结算</button>
+      <button id="btnNewRound">开启新一期</button>
+    </div>
+  </section>
+
+  <section id="userPanel">
+    <label>用户操作</label>
+    <div>
+      <button id="btnJoin">缴纳打卡定金</button>
+      <button id="btnCheckIn">打卡</button>
+      <button id="btnWithdraw">提现</button>
+    </div>
+  </section>
+
+  <section>
+    <label>当前状态</label>
+    <div id="status" class="info">加载中…</div>
+    <div id="tx" class="info"></div>
+  </section>
+
+  <script src="app.js"></script>
+  <p style="font-size:12px;color:#888;">若控制台出现 MetaMask/Rabby 的 ethereum 冲突提示，可忽略（本页使用本地链，不依赖钱包插件）。</p>
+</body>
+</html>
