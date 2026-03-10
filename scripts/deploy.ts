@@ -23,6 +23,16 @@ async function main() {
   await fitCamp.waitForDeployment();
   const fitCampAddress = await fitCamp.getAddress();
   console.log("FitCamp 部署地址:", fitCampAddress);
+
+  // 3. 部署 FitNFT，并设为 FitCamp 的 NFT 合约
+  const FitNFT = await ethers.getContractFactory("FitNFT");
+  const fitNFT = await FitNFT.deploy(fitCampAddress);
+  await fitNFT.waitForDeployment();
+  const fitNFTAddress = await fitNFT.getAddress();
+  console.log("FitNFT 部署地址:", fitNFTAddress);
+  const setTx = await fitCamp.setFitNFT(fitNFTAddress);
+  await setTx.wait();
+  console.log("FitCamp.setFitNFT 已设置");
 }
 
 main().catch((error) => {

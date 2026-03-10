@@ -3,7 +3,7 @@
 A **multi-round check-in challenge** DApp: users stake 100 USDC per round, complete 7 check-ins within the round period, and winners share the pool; the owner can settle, withdraw dust, and start new rounds.
 
 - **Stack**: Solidity (Hardhat), Node.js web UI with ethers.js, local chain or Base Sepolia.
-- **Docs**: [User Guide](docs/USER_GUIDE.md) (中文) · [Developer Setup](docs/DEVELOPER_SETUP.md) (中文) · [Publish to GitHub](docs/GITHUB_PUBLISH.md) (中文)
+- **Docs**: [User Guide](docs/USER_GUIDE.md) (中文) · [Developer Setup](docs/DEVELOPER_SETUP.md) (中文) · [Publish to GitHub](docs/GITHUB_PUBLISH.md) (中文) · [在 GitHub 上测试界面](docs/DEPLOY_WEB_DEMO.md) (中文)
 
 ---
 

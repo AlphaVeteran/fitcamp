@@ -16,6 +16,7 @@ contract FitCamp is Ownable {
 
     uint256 public currentRoundId;
     mapping(uint256 => uint256) public roundEndTime;
+    mapping(uint256 => bool) public roundOpenForJoin;
     mapping(uint256 => mapping(address => User)) public participants;
     mapping(uint256 => address[]) public participantList;
     mapping(uint256 => uint256) public rewardPerWinner;
@@ -23,15 +24,27 @@ contract FitCamp is Ownable {
     mapping(uint256 => uint256) public winnersWithdrawnCount;
     mapping(uint256 => bool) public isSettled;
 
+    address public fitNFT;
+    mapping(uint256 roundId => mapping(address => bool)) public hasClaimedFitNFT;
+    mapping(uint256 roundId => mapping(address => uint256)) public claimedFitNFTTokenId;
+
     constructor(address _usdcAddress, uint256 _durationDays) Ownable(msg.sender) {
         usdcToken = IERC20(_usdcAddress);
         currentRoundId = 0;
         roundEndTime[0] = block.timestamp + (_durationDays * 1 days);
     }
 
-    // 1. 缴纳定金（参加当期）
+    // 0. 群主开放当期报名（建群后用户方可缴纳定金）
+    function openRoundForJoin(uint256 _roundId) external onlyOwner {
+        require(_roundId <= currentRoundId, "Round does not exist");
+        require(block.timestamp < roundEndTime[_roundId], "Round already ended");
+        roundOpenForJoin[_roundId] = true;
+    }
+
+    // 1. 缴纳定金（参加当期；须群主先开放该期报名）
     function joinCamp() external {
         uint256 round = currentRoundId;
+        require(roundOpenForJoin[round], "Round not open for join");
         require(!participants[round][msg.sender].hasStaked, "Already joined this round");
         require(block.timestamp < roundEndTime[round], "Round ended");
         require(usdcToken.transferFrom(msg.sender, address(this), STAKE_AMOUNT), "Transfer failed");
@@ -47,7 +60,22 @@ contract FitCamp is Ownable {
         participants[round][_user].checkInCount += 1;
     }
 
-    // 3. 结算并提现（指定期数）
+    // 2b. 群主主动结算当期（期结束后调用，有获胜者时计算 rewardPerWinner）
+    function settleRound(uint256 _roundId) external onlyOwner {
+        require(block.timestamp >= roundEndTime[_roundId], "Round not ended");
+        require(!isSettled[_roundId], "Already settled");
+        uint256 count = 0;
+        address[] storage list = participantList[_roundId];
+        for (uint256 i = 0; i < list.length; i++) {
+            if (participants[_roundId][list[i]].checkInCount >= 7) count++;
+        }
+        require(count > 0, "No winners");
+        winnersCount[_roundId] = count;
+        rewardPerWinner[_roundId] = usdcToken.balanceOf(address(this)) / count;
+        isSettled[_roundId] = true;
+    }
+
+    // 3. 结算并提现（指定期数；若未结算则首次提现者会触发结算逻辑，群主也可先调 settleRound）
     function settleAndWithdraw(uint256 _roundId) external {
         require(block.timestamp >= roundEndTime[_roundId], "Round still active");
         User storage user = participants[_roundId][msg.sender];
@@ -98,7 +126,7 @@ contract FitCamp is Ownable {
         winnersCount[_roundId] = 0;
     }
 
-    // 5. 开启新一期（须先提走上期余数，保证合约余额为 0）
+    // 5. 开启新一期（余数可不提现，自动滚入下一期奖金池）
     function startNewRound(uint256 _durationDays) external onlyOwner {
         require(block.timestamp >= roundEndTime[currentRoundId], "Current round not ended");
         require(isSettled[currentRoundId], "Current round not settled");
@@ -106,9 +134,9 @@ contract FitCamp is Ownable {
             winnersWithdrawnCount[currentRoundId] == winnersCount[currentRoundId],
             "Not all winners withdrawn"
         );
-        require(usdcToken.balanceOf(address(this)) == 0, "Withdraw dust first");
         currentRoundId++;
         roundEndTime[currentRoundId] = block.timestamp + (_durationDays * 1 days);
+        roundOpenForJoin[currentRoundId] = true;
     }
 
     // 查询某期某用户
@@ -120,4 +148,35 @@ contract FitCamp is Ownable {
         User storage u = participants[_roundId][_user];
         return (u.hasStaked, u.checkInCount, u.isWithdrawn);
     }
+
+    // 查询某期参与名单（前端一次取回，避免 getter 只支持 participantList(roundId, index)）
+    function getParticipantList(uint256 _roundId) external view returns (address[] memory) {
+        return participantList[_roundId];
+    }
+
+    function setFitNFT(address _fitNFT) external onlyOwner {
+        fitNFT = _fitNFT;
+    }
+
+    // 优胜者领取当期 Fit NFT（每期每人最多领 1 个）
+    function claimFitNFT(uint256 _roundId) external {
+        require(fitNFT != address(0), "FitNFT not set");
+        require(block.timestamp >= roundEndTime[_roundId], "Round not ended");
+        require(isSettled[_roundId], "Round not settled");
+        require(participants[_roundId][msg.sender].checkInCount >= 7, "Not a winner");
+        require(!hasClaimedFitNFT[_roundId][msg.sender], "Already claimed");
+        hasClaimedFitNFT[_roundId][msg.sender] = true;
+        uint256 tokenId = IFitNFT(fitNFT).mint(msg.sender, _roundId);
+        claimedFitNFTTokenId[_roundId][msg.sender] = tokenId;
+    }
+
+    // 群主设置 Fit NFT 的通用图片 URL（如 GitHub raw 链接）
+    function setFitNFTImageURI(string calldata _uri) external onlyOwner {
+        if (fitNFT != address(0)) IFitNFT(fitNFT).setImageBaseURI(_uri);
+    }
+}
+
+interface IFitNFT {
+    function mint(address to, uint256 roundId) external returns (uint256 tokenId);
+    function setImageBaseURI(string calldata _uri) external;
 }

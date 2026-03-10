@@ -5,7 +5,7 @@
 ### 1. 启动本地链（终端 1）
 
 ```bash
-cd /Users/amberlu/Documents/cursor
+cd /Users/amberlu/Documents/fitcamp
 npm run node
 ```
 
@@ -14,7 +14,7 @@ npm run node
 ### 2. 初始化合约并生成前端配置（终端 2）
 
 ```bash
-cd /Users/amberlu/Documents/cursor
+cd /Users/amberlu/Documents/fitcamp
 npm run compile
 npm run init-local
 ```

@@ -29,6 +29,16 @@ async function main() {
   const fitCampAddress = await fitCamp.getAddress();
   console.log("FitCamp 部署:", fitCampAddress);
 
+  // 3. Deploy FitNFT，FitCamp 为 minter
+  const FitNFT = await ethers.getContractFactory("FitNFT");
+  const fitNFT = await FitNFT.deploy(fitCampAddress);
+  await fitNFT.waitForDeployment();
+  const fitNFTAddress = await fitNFT.getAddress();
+  console.log("FitNFT 部署:", fitNFTAddress);
+  const setTx = await fitCamp.setFitNFT(fitNFTAddress);
+  await setTx.wait();
+  console.log("FitCamp.setFitNFT 已设置");
+
   const stakeAmount = 100n * 10n ** 6n;
   for (const account of [K, A, B, C]) {
     await usdc.connect(account).mint(account.address, MINT_USDC);
@@ -50,6 +60,12 @@ async function main() {
       "utf8"
     )
   );
+  const fitNFTArtifact = JSON.parse(
+    fs.readFileSync(
+      path.join(__dirname, "..", "artifacts/contracts/FitNFT.sol/FitNFT.json"),
+      "utf8"
+    )
+  );
 
   fs.writeFileSync(
     path.join(WEB_DIR, "addresses.json"),
@@ -57,6 +73,7 @@ async function main() {
       {
         fitCamp: fitCampAddress,
         mockUsdc: usdcAddress,
+        fitNFT: fitNFTAddress,
         chainId: 31337,
         accounts: {
           K: K.address,
@@ -75,6 +92,7 @@ async function main() {
     JSON.stringify({
       FitCamp: fitCampArtifact.abi,
       MockUSDC: usdcArtifact.abi,
+      FitNFT: fitNFTArtifact.abi,
     })
   );
 

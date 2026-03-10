@@ -38,13 +38,13 @@
 
 ## 第三步：在本地把项目变成 Git 仓库并做第一次提交
 
-在终端里**进入项目根目录**（就是你放 FitCamp 代码的文件夹，例如 `Documents/cursor`）：
+在终端里**进入项目根目录**（就是你放 FitCamp 代码的文件夹，例如 `Documents/fitcamp`）：
 
 ```bash
-cd /Users/amberlu/Documents/cursor
+cd /Users/amberlu/Documents/fitcamp
 ```
 
-（如果你的项目不在这个路径，把上面的路径改成你自己的，例如 `cd ~/Documents/cursor`。）
+（如果你的项目不在这个路径，把上面的路径改成你自己的，例如 `cd ~/Documents/fitcamp`。）
 
 然后按顺序执行下面命令。
 
