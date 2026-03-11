@@ -12,8 +12,11 @@
     h1 { font-size: 1.25rem; }
     section { margin: 16px 0; padding: 12px; border: 1px solid #ddd; border-radius: 8px; }
     label { display: block; margin-bottom: 4px; font-weight: 600; }
-    select, button { padding: 8px 12px; margin: 4px 4px 4px 0; font-size: 14px; }
+    select, button { padding: 8px 12px; margin: 0; font-size: 14px; }
+    button { min-width: 160px; width: 160px; }
     button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+    .btn-row button { flex: 0 0 auto; }
     .info { font-size: 13px; color: #555; margin: 8px 0; }
     .error { color: #c00; }
     .success { color: #080; }
@@ -26,10 +29,11 @@
     <label>当前用户</label>
     <div id="userSelectWrap">
       <select id="userSelect">
-        <option value="K">K（群主）</option>
-        <option value="A">A</option>
-        <option value="B">B</option>
-        <option value="C">C</option>
+        <option value="K">群主 owner</option>
+        <option value="A">会员 Alice</option>
+        <option value="B">会员 Bob</option>
+        <option value="C">会员 Carol</option>
+        <option value="D">会员 David</option>
       </select>
     </div>
     <div id="connectWalletWrap" style="display:none">
@@ -40,32 +44,35 @@
 
   <section id="kPanel">
     <label>群主操作</label>
-    <div>
-      <button id="btnNewRound">1. 建立 FitCamp 群</button>
-      <span id="currentRoundLabel" class="info" style="margin-left:8px">当前：第 1 期</span>
+    <div class="btn-row">
+      <button id="btnNewRound">新建 FitCamp</button>
+      <label for="newRoundDuration" style="font-weight:normal;margin:0">下一期天数</label>
+      <select id="newRoundDuration">
+        <option value="1">1 天</option>
+        <option value="7" selected>7 天</option>
+        <option value="28">28 天</option>
+      </select>
+      <span id="currentRoundLabel" class="info" style="margin:0">当前：第 1 期</span>
     </div>
-    <div>
-      <button id="btnStart">2. 开始打卡</button>
-      <div id="participantInfo" class="info" style="margin-top:8px;white-space:pre-wrap"></div>
+    <div class="btn-row">
+      <button id="btnStart">开始打卡</button>
+      <button id="btnEnd">结束打卡</button>
     </div>
-    <div>
-      <button id="btnEnd">3. 结束打卡</button>
-      <div id="settlementResult" class="info" style="margin-top:8px;white-space:pre-wrap"></div>
+    <div id="participantInfo" class="info" style="white-space:pre-wrap;margin-top:0"></div>
+    <div id="settlementResult" class="info" style="white-space:pre-wrap"></div>
+    <div class="btn-row">
+      <button id="btnWithdrawDust">群主提现</button>
+      <span id="withdrawDustTip" class="info" style="margin:0;font-size:12px;color:#888">不提现则本期余额自动滚入下一期奖金池</span>
     </div>
-    <div>
-      <button id="btnWithdrawDust">4. 群主提现</button>
-      <span id="withdrawDustTip" class="info" style="margin-left:8px;font-size:12px;color:#888">不提现则本期余额自动滚入下一期奖金池</span>
-      <div id="campPoolBalance" class="info" style="margin-top:6px">目前奖金池总金额：—</div>
-    </div>
+    <div id="campPoolBalance" class="info" style="margin-top:6px">目前奖金池总金额：—</div>
   </section>
 
   <section id="userPanel">
     <label>用户操作</label>
-    <div>
+    <div class="btn-row">
       <button id="btnJoin">缴纳打卡定金</button>
       <button id="btnCheckIn">打卡</button>
       <button id="btnWithdraw">提现</button>
-      <button id="btnClaimFitNFT">领取 Fit NFT</button>
     </div>
   </section>
 

@@ -25,12 +25,13 @@
     var isTestnetMode = false;
     var testnetSigner = null;
 
-    // Hardhat 默认前 4 个账户私钥，与 init-local 部署时使用的完全一致（仅本地开发）
+    // Hardhat 默认前 5 个账户私钥，与 init-local 部署时使用的完全一致（仅本地开发）
     var HARDHAT_PRIVATE_KEYS = [
       "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
       "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d",
       "0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a",
       "0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6",
+      "0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a",
     ];
 
     var provider, addresses, abis, wallets;
@@ -51,9 +52,9 @@
     var btnJoin = document.getElementById("btnJoin");
     var btnCheckIn = document.getElementById("btnCheckIn");
     var btnWithdraw = document.getElementById("btnWithdraw");
-    var btnClaimFitNFT = document.getElementById("btnClaimFitNFT");
     var btnWithdrawDust = document.getElementById("btnWithdrawDust");
     var btnNewRound = document.getElementById("btnNewRound");
+    var newRoundDurationSelect = document.getElementById("newRoundDuration");
     var currentRoundLabel = document.getElementById("currentRoundLabel");
     var participantInfo = document.getElementById("participantInfo");
     var settlementResult = document.getElementById("settlementResult");
@@ -80,12 +81,23 @@
     function currentWallet() {
       if (isTestnetMode && testnetSigner) return testnetSigner;
       var k = userKey();
-      return wallets[{ K: 0, A: 1, B: 2, C: 3 }[k]];
+      return wallets[{ K: 0, A: 1, B: 2, C: 3, D: 4 }[k]];
     }
 
     function isK() {
       if (isTestnetMode) return !!window._isK;
       return userKey() === "K";
+    }
+
+    var ACCOUNT_LABELS = { K: "群主 owner", A: "会员 Alice", B: "会员 Bob", C: "会员 Carol", D: "会员 David" };
+    function displayNameForAddress(addr) {
+      if (!addresses || !addresses.accounts) return (addr || "").slice(0, 8) + "…" + (addr || "").slice(-6);
+      var a = (addr || "").toLowerCase();
+      for (var key in addresses.accounts) {
+        if (addresses.accounts[key] && addresses.accounts[key].toLowerCase() === a)
+          return ACCOUNT_LABELS[key] || (addr || "").slice(0, 8) + "…" + (addr || "").slice(-6);
+      }
+      return (addr || "").slice(0, 8) + "…" + (addr || "").slice(-6);
     }
 
     async function loadContracts() {
@@ -208,20 +220,6 @@
           withdrawableRoundId = r;
           break;
         }
-        window._claimFitNFTRoundId = null;
-        for (var r2 = 0; r2 <= currentRoundId; r2++) {
-          var end2 = Number(await fitCamp.roundEndTime(r2));
-          if (now < end2) continue;
-          var settled2 = await fitCamp.isSettled(r2);
-          if (!settled2) continue;
-          var ur2 = await fitCamp.participants(r2, addr);
-          if (!ur2.hasStaked || Number(ur2.checkInCount) < 7) continue;
-          var claimed = await fitCamp.hasClaimedFitNFT(r2, addr);
-          if (claimed) continue;
-          window._claimFitNFTRoundId = r2;
-          break;
-        }
-
         window._currentRoundSettled = settled;
         window._currentRoundId = currentRoundId;
         var wc = 0, wwc = 0;
@@ -251,7 +249,7 @@
             if (myFitNFTTip) myFitNFTTip.textContent = "";
           } else {
             myFitNFTList.textContent = nftList.map(function (x) {
-              return "第 " + (x.round + 1) + " 期：Token #" + x.tokenId;
+              return "Token #" + x.tokenId + "（第 " + (x.round + 1) + " 期获胜者）";
             }).join("\n");
             if (myFitNFTTip) myFitNFTTip.textContent = "在 MetaMask 中：NFT → 导入 NFT，合约地址填 " + addresses.fitNFT.slice(0, 8) + "…" + addresses.fitNFT.slice(-6) + "，Token ID 填上表数字。";
           }
@@ -291,6 +289,11 @@
         btnWithdrawDust.disabled = !window._canWithdrawDust;
         btnWithdrawDust.title = window._canWithdrawDust ? "" : "需本期已结算且所有获胜者已提现（或无获胜者时直接可提）、合约有余额时可用";
       }
+      if (btnEnd) {
+        var endAllowed = isTestnetMode ? window._challengeOver : true;
+        btnEnd.disabled = !isK() || settled || !endAllowed;
+        btnEnd.title = settled ? "本期已结算，无需重复操作" : (isTestnetMode && !window._challengeOver ? "需等当期结束时间到达后再点（测试网按真实时间）" : "点击执行结算（本地将自动快进 7 天并结算）");
+      }
       if (campPoolBalance) {
         if (isK()) {
           var bal = window._campBalance != null ? window._campBalance : 0n;
@@ -324,7 +327,6 @@
       }
       btnCheckIn.disabled = !uiStarted || uiCheckInEnded || !hasStaked;
       btnWithdraw.disabled = !canWithdraw;
-      if (btnClaimFitNFT) btnClaimFitNFT.disabled = window._claimFitNFTRoundId == null;
       window._withdrawableRoundId = withdrawableRoundId;
     }
 
@@ -344,7 +346,7 @@
           for (var i = 0; i < list.length; i++) {
             var addr = list[i];
             var bal = await usdc.balanceOf(addr);
-            lines.push(addr.slice(0, 8) + "…" + addr.slice(-6) + " => " + ethers.formatUnits(bal, 6) + " USDC");
+            lines.push(displayNameForAddress(addr) + " => " + ethers.formatUnits(bal, 6) + " USDC");
           }
           if (participantInfo) participantInfo.textContent = lines.join("\n");
         } catch (e) {
@@ -355,6 +357,12 @@
       btnEnd.onclick = async function () {
         var roundId = window._currentRoundId;
         if (roundId === undefined) roundId = Number(await fitCamp.currentRoundId());
+        var alreadySettled = await fitCamp.isSettled(roundId);
+        if (alreadySettled) {
+          setTx("本期已结算，无需重复操作。");
+          refreshStatus();
+          return;
+        }
         setTx("正在结束打卡并结算…");
         try {
           if (!isTestnetMode) {
@@ -377,13 +385,24 @@
             await tx2.wait();
           }
           setTx("已结束打卡并完成结算。");
+          if (winners > 0 && addresses && addresses.fitNFT) {
+            try {
+              setTx("正在为优胜者铸造 Fit NFT…");
+              var nextNonce = await provider.getTransactionCount(ownerWallet.address, "latest");
+              var mintTx = await fitCamp.connect(ownerWallet).mintFitNFTsForRound(roundId, { nonce: nextNonce });
+              await mintTx.wait();
+              setTx("已结束打卡并完成结算，Fit NFT 已发放给优胜者。");
+            } catch (mintErr) {
+              setTx("已结束打卡并完成结算；Fit NFT 发放失败: " + (mintErr.message || mintErr));
+            }
+          }
           var rewardPer = await fitCamp.rewardPerWinner(roundId);
           var lines = ["结算结果（每人可获奖金）："];
           for (var j = 0; j < list.length; j++) {
             var addr = list[j];
             var u2 = await fitCamp.participants(roundId, addr);
             var amt = Number(u2.checkInCount) >= 7 ? rewardPer : 0n;
-            lines.push(addr.slice(0, 8) + "…" + addr.slice(-6) + " => " + ethers.formatUnits(amt, 6) + " USDC");
+            lines.push(displayNameForAddress(addr) + " => " + ethers.formatUnits(amt, 6) + " USDC");
           }
           if (settlementResult) settlementResult.textContent = lines.join("\n");
         } catch (e) {
@@ -443,27 +462,6 @@
         refreshStatus();
       };
 
-      if (btnClaimFitNFT) {
-        btnClaimFitNFT.onclick = async function () {
-          var roundId = window._claimFitNFTRoundId;
-          if (roundId === undefined || roundId === null) {
-            setTx("无可领取的 Fit NFT。");
-            return;
-          }
-          var signer = currentWallet();
-          setTx("领取 Fit NFT（第 " + (roundId + 1) + " 期）…");
-          try {
-            var tx = await fitCamp.connect(signer).claimFitNFT(roundId);
-            await tx.wait();
-            var tokenId = await fitCamp.claimedFitNFTTokenId(roundId, signer.address);
-            setTx("Fit NFT 已领取，Token ID: " + tokenId + "。可在 MetaMask 的 NFT 中导入查看。");
-          } catch (e) {
-            setTx("领取失败: " + (e.message || e));
-          }
-          refreshStatus();
-        };
-      }
-
       if (btnWithdrawDust) {
         btnWithdrawDust.onclick = async function () {
           if (!window._canWithdrawDust) {
@@ -510,9 +508,10 @@
               setTx("开放报名失败: " + (e.message || e));
             }
           } else {
-            setTx("建立新群 / 开启新一期（" + CHALLENGE_DAYS + " 天）…");
+            var durationDays = newRoundDurationSelect ? Number(newRoundDurationSelect.value) : 7;
+            setTx("建立新群 / 开启新一期（" + durationDays + " 天）…");
             try {
-              var tx = await fitCamp.connect(ownerWallet).startNewRound(CHALLENGE_DAYS);
+              var tx = await fitCamp.connect(ownerWallet).startNewRound(durationDays);
               await tx.wait();
               uiStarted = true;
               uiCheckInEnded = false;

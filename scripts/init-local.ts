@@ -8,12 +8,13 @@ const WEB_DIR = path.join(__dirname, "..", "web");
 
 async function main() {
   const signers = await ethers.getSigners();
-  const [K, A, B, C] = signers.slice(0, 4);
+  const [K, A, B, C, D] = signers.slice(0, 5);
 
-  console.log("群主 K:", K.address);
-  console.log("用户 A:", A.address);
-  console.log("用户 B:", B.address);
-  console.log("用户 C:", C.address);
+  console.log("群主 owner:", K.address);
+  console.log("会员 Alice:", A.address);
+  console.log("会员 Bob:", B.address);
+  console.log("会员 Carol:", C.address);
+  console.log("会员 David:", D.address);
 
   // 1. Deploy MockUSDC
   const MockUSDC = await ethers.getContractFactory("MockUSDC");
@@ -40,11 +41,11 @@ async function main() {
   console.log("FitCamp.setFitNFT 已设置");
 
   const stakeAmount = 100n * 10n ** 6n;
-  for (const account of [K, A, B, C]) {
+  for (const account of [K, A, B, C, D]) {
     await usdc.connect(account).mint(account.address, MINT_USDC);
     await usdc.connect(account).approve(fitCampAddress, ethers.MaxUint256);
   }
-  console.log("已向 K、A、B、C 各铸造 1000 USDC 并授权 FitCamp");
+  console.log("已向 群主 owner、Alice、Bob、Carol、David 各铸造 1000 USDC 并授权 FitCamp");
 
   if (!fs.existsSync(WEB_DIR)) fs.mkdirSync(WEB_DIR, { recursive: true });
 
@@ -80,6 +81,7 @@ async function main() {
           A: A.address,
           B: B.address,
           C: C.address,
+          D: D.address,
         },
       },
       null,

@@ -253,4 +253,325 @@ describe("FitCamp (多期)", function () {
       await expect(fitCamp.connect(alice).claimFitNFT(ROUND_ID)).to.be.revertedWith("Already claimed");
     });
   });
+
+  describe("多期：无人参加时不增加期数", function () {
+    it("开启新一期后无人参加，再新开一期时期数不增加，只重置当前期结束时间", async function () {
+      await fitCamp.connect(alice).joinCamp();
+      for (let i = 0; i < 7; i++) await fitCamp.connect(owner).checkIn(alice.address);
+      const endTime0 = await fitCamp.roundEndTime(ROUND_ID);
+      await time.increaseTo(endTime0 + 1n);
+      await fitCamp.connect(alice).settleAndWithdraw(ROUND_ID);
+      const campAddress = await fitCamp.getAddress();
+      if (await usdc.balanceOf(campAddress) > 0n) {
+        await fitCamp.connect(owner).withdrawDust(ROUND_ID);
+      }
+      await fitCamp.connect(owner).startNewRound(CHALLENGE_DAYS);
+      expect(await fitCamp.currentRoundId()).to.equal(1n);
+      const endTime1Before = await fitCamp.roundEndTime(1);
+      await time.increaseTo(endTime1Before + 1n);
+      await fitCamp.connect(owner).settleRoundWithNoWinners(1);
+      if (await usdc.balanceOf(campAddress) > 0n) {
+        await fitCamp.connect(owner).withdrawDust(1);
+      }
+      await fitCamp.connect(owner).startNewRound(CHALLENGE_DAYS);
+      expect(await fitCamp.currentRoundId()).to.equal(1n);
+      const endTime1After = await fitCamp.roundEndTime(1);
+      expect(endTime1After).to.gt(endTime1Before);
+      expect(await fitCamp.roundOpenForJoin(1)).to.equal(true);
+      await fitCamp.connect(bob).joinCamp();
+      const bobUser = await fitCamp.participants(1, bob.address);
+      expect(bobUser.hasStaked).to.equal(true);
+    });
+  });
+
+  describe("边界与安全：权限", function () {
+    it("非 owner 调用 openRoundForJoin / checkIn / settleRound / withdrawDust / settleRoundWithNoWinners / startNewRound / setFitNFT 应 revert", async function () {
+      const notOwner = alice;
+      await expect(fitCamp.connect(notOwner).openRoundForJoin(0)).to.be.revertedWithCustomError(
+        fitCamp,
+        "OwnableUnauthorizedAccount"
+      );
+      await fitCamp.connect(alice).joinCamp();
+      await fitCamp.connect(bob).joinCamp();
+      await expect(fitCamp.connect(notOwner).checkIn(alice.address)).to.be.revertedWithCustomError(
+        fitCamp,
+        "OwnableUnauthorizedAccount"
+      );
+      for (let i = 0; i < 7; i++) {
+        await fitCamp.connect(owner).checkIn(alice.address);
+        await fitCamp.connect(owner).checkIn(bob.address);
+      }
+      const endTime = await fitCamp.roundEndTime(ROUND_ID);
+      await time.increaseTo(endTime + 1n);
+      await expect(fitCamp.connect(notOwner).settleRound(ROUND_ID)).to.be.revertedWithCustomError(
+        fitCamp,
+        "OwnableUnauthorizedAccount"
+      );
+      await fitCamp.connect(owner).settleRound(ROUND_ID);
+      await fitCamp.connect(alice).settleAndWithdraw(ROUND_ID);
+      await expect(fitCamp.connect(notOwner).withdrawDust(ROUND_ID)).to.be.revertedWithCustomError(
+        fitCamp,
+        "OwnableUnauthorizedAccount"
+      );
+      await fitCamp.connect(bob).settleAndWithdraw(ROUND_ID);
+      await fitCamp.connect(owner).startNewRound(CHALLENGE_DAYS);
+      const endTime1 = await fitCamp.roundEndTime(1);
+      await time.increaseTo(endTime1 + 1n);
+      await expect(
+        fitCamp.connect(notOwner).settleRoundWithNoWinners(1)
+      ).to.be.revertedWithCustomError(fitCamp, "OwnableUnauthorizedAccount");
+      await fitCamp.connect(owner).settleRoundWithNoWinners(1);
+      await expect(
+        fitCamp.connect(notOwner).startNewRound(CHALLENGE_DAYS)
+      ).to.be.revertedWithCustomError(fitCamp, "OwnableUnauthorizedAccount");
+      const FitNFT = await ethers.getContractFactory("FitNFT");
+      const nft = await FitNFT.deploy(await fitCamp.getAddress());
+      await nft.waitForDeployment();
+      await expect(
+        fitCamp.connect(notOwner).setFitNFT(await nft.getAddress())
+      ).to.be.revertedWithCustomError(fitCamp, "OwnableUnauthorizedAccount");
+    });
+  });
+
+  describe("边界与安全：时间与期数", function () {
+    it("openRoundForJoin 对不存在的期 (_roundId > currentRoundId) 应 revert", async function () {
+      await expect(fitCamp.connect(owner).openRoundForJoin(1)).to.be.revertedWith(
+        "Round does not exist"
+      );
+    });
+
+    it("openRoundForJoin 对已结束的期应 revert", async function () {
+      const endTime = await fitCamp.roundEndTime(ROUND_ID);
+      await time.increaseTo(endTime + 1n);
+      await expect(fitCamp.connect(owner).openRoundForJoin(ROUND_ID)).to.be.revertedWith(
+        "Round already ended"
+      );
+    });
+
+    it("joinCamp 在当期结束后应 revert", async function () {
+      const endTime = await fitCamp.roundEndTime(ROUND_ID);
+      await time.increaseTo(endTime + 1n);
+      await expect(fitCamp.connect(alice).joinCamp()).to.be.revertedWith("Round ended");
+    });
+
+    it("checkIn 在当期结束后应 revert", async function () {
+      await fitCamp.connect(alice).joinCamp();
+      const endTime = await fitCamp.roundEndTime(ROUND_ID);
+      await time.increaseTo(endTime + 1n);
+      await expect(fitCamp.connect(owner).checkIn(alice.address)).to.be.revertedWith(
+        "Round over"
+      );
+    });
+
+    it("settleRound 在期未结束时应 revert", async function () {
+      await fitCamp.connect(alice).joinCamp();
+      await expect(fitCamp.connect(owner).settleRound(ROUND_ID)).to.be.revertedWith(
+        "Round not ended"
+      );
+    });
+
+    it("settleAndWithdraw 在期未结束时应 revert", async function () {
+      await fitCamp.connect(alice).joinCamp();
+      await expect(fitCamp.connect(alice).settleAndWithdraw(ROUND_ID)).to.be.revertedWith(
+        "Round still active"
+      );
+    });
+
+    it("startNewRound 当前期未结束时应 revert", async function () {
+      await expect(fitCamp.connect(owner).startNewRound(CHALLENGE_DAYS)).to.be.revertedWith(
+        "Current round not ended"
+      );
+    });
+
+    it("startNewRound 当前期未结算时应 revert", async function () {
+      const endTime = await fitCamp.roundEndTime(ROUND_ID);
+      await time.increaseTo(endTime + 1n);
+      await expect(fitCamp.connect(owner).startNewRound(CHALLENGE_DAYS)).to.be.revertedWith(
+        "Current round not settled"
+      );
+    });
+
+    it("startNewRound 有优胜者未提现时应 revert", async function () {
+      await fitCamp.connect(alice).joinCamp();
+      for (let i = 0; i < 7; i++) await fitCamp.connect(owner).checkIn(alice.address);
+      const endTime = await fitCamp.roundEndTime(ROUND_ID);
+      await time.increaseTo(endTime + 1n);
+      await fitCamp.connect(owner).settleRound(ROUND_ID);
+      await expect(fitCamp.connect(owner).startNewRound(CHALLENGE_DAYS)).to.be.revertedWith(
+        "Not all winners withdrawn"
+      );
+    });
+  });
+
+  describe("边界与安全：状态与重复", function () {
+    it("同一期重复 joinCamp 应 revert", async function () {
+      await fitCamp.connect(alice).joinCamp();
+      await expect(fitCamp.connect(alice).joinCamp()).to.be.revertedWith(
+        "Already joined this round"
+      );
+    });
+
+    it("优胜者重复 settleAndWithdraw 应 revert (Invalid withdrawal)", async function () {
+      await fitCamp.connect(alice).joinCamp();
+      for (let i = 0; i < 7; i++) await fitCamp.connect(owner).checkIn(alice.address);
+      const endTime = await fitCamp.roundEndTime(ROUND_ID);
+      await time.increaseTo(endTime + 1n);
+      await fitCamp.connect(alice).settleAndWithdraw(ROUND_ID);
+      await expect(fitCamp.connect(alice).settleAndWithdraw(ROUND_ID)).to.be.revertedWith(
+        "Invalid withdrawal"
+      );
+    });
+
+    it("settleRound 已结算后再调应 revert", async function () {
+      await fitCamp.connect(alice).joinCamp();
+      for (let i = 0; i < 7; i++) await fitCamp.connect(owner).checkIn(alice.address);
+      const endTime = await fitCamp.roundEndTime(ROUND_ID);
+      await time.increaseTo(endTime + 1n);
+      await fitCamp.connect(owner).settleRound(ROUND_ID);
+      await expect(fitCamp.connect(owner).settleRound(ROUND_ID)).to.be.revertedWith(
+        "Already settled"
+      );
+    });
+
+    it("settleRound 当 0 个优胜者时应 revert", async function () {
+      await fitCamp.connect(alice).joinCamp();
+      await fitCamp.connect(bob).joinCamp();
+      const endTime = await fitCamp.roundEndTime(ROUND_ID);
+      await time.increaseTo(endTime + 1n);
+      await expect(fitCamp.connect(owner).settleRound(ROUND_ID)).to.be.revertedWith(
+        "No winners"
+      );
+    });
+
+    it("settleRoundWithNoWinners 当有优胜者时应 revert", async function () {
+      await fitCamp.connect(alice).joinCamp();
+      for (let i = 0; i < 7; i++) await fitCamp.connect(owner).checkIn(alice.address);
+      const endTime = await fitCamp.roundEndTime(ROUND_ID);
+      await time.increaseTo(endTime + 1n);
+      await expect(
+        fitCamp.connect(owner).settleRoundWithNoWinners(ROUND_ID)
+      ).to.be.revertedWith("There are winners");
+    });
+
+    it("withdrawDust 未结算时应 revert", async function () {
+      await fitCamp.connect(alice).joinCamp();
+      for (let i = 0; i < 7; i++) await fitCamp.connect(owner).checkIn(alice.address);
+      const endTime = await fitCamp.roundEndTime(ROUND_ID);
+      await time.increaseTo(endTime + 1n);
+      await expect(fitCamp.connect(owner).withdrawDust(ROUND_ID)).to.be.revertedWith(
+        "Round not settled"
+      );
+    });
+
+    it("withdrawDust 有优胜者未提完时应 revert", async function () {
+      await fitCamp.connect(alice).joinCamp();
+      await fitCamp.connect(bob).joinCamp();
+      for (let i = 0; i < 7; i++) {
+        await fitCamp.connect(owner).checkIn(alice.address);
+        await fitCamp.connect(owner).checkIn(bob.address);
+      }
+      const endTime = await fitCamp.roundEndTime(ROUND_ID);
+      await time.increaseTo(endTime + 1n);
+      await fitCamp.connect(owner).settleRound(ROUND_ID);
+      await fitCamp.connect(alice).settleAndWithdraw(ROUND_ID);
+      await expect(fitCamp.connect(owner).withdrawDust(ROUND_ID)).to.be.revertedWith(
+        "Not all winners withdrawn"
+      );
+    });
+
+    it("withdrawDust 合约余额为 0 时应 revert", async function () {
+      await fitCamp.connect(alice).joinCamp();
+      for (let i = 0; i < 7; i++) await fitCamp.connect(owner).checkIn(alice.address);
+      const endTime = await fitCamp.roundEndTime(ROUND_ID);
+      await time.increaseTo(endTime + 1n);
+      await fitCamp.connect(alice).settleAndWithdraw(ROUND_ID);
+      await expect(fitCamp.connect(owner).withdrawDust(ROUND_ID)).to.be.revertedWith(
+        "No dust"
+      );
+    });
+  });
+
+  describe("边界与安全：USDC 授权与余额", function () {
+    it("余额不足时 joinCamp 应 revert", async function () {
+      const poor = (await ethers.getSigners())[4];
+      await usdc.connect(poor).approve(await fitCamp.getAddress(), ethers.MaxUint256);
+      await expect(fitCamp.connect(poor).joinCamp()).to.be.reverted;
+    });
+
+    it("授权不足时 joinCamp 应 revert", async function () {
+      await usdc.connect(alice).approve(await fitCamp.getAddress(), 0n);
+      await expect(fitCamp.connect(alice).joinCamp()).to.be.reverted;
+    });
+
+    it("授权金额小于 100 USDC 时 joinCamp 应 revert", async function () {
+      await usdc.connect(alice).approve(await fitCamp.getAddress(), STAKE_AMOUNT - 1n);
+      await expect(fitCamp.connect(alice).joinCamp()).to.be.reverted;
+    });
+  });
+
+  describe("边界与安全：人数与金额", function () {
+    it("0 人参加时群主调用 settleRound 应 revert (No winners)", async function () {
+      const endTime = await fitCamp.roundEndTime(ROUND_ID);
+      await time.increaseTo(endTime + 1n);
+      await expect(fitCamp.connect(owner).settleRound(ROUND_ID)).to.be.revertedWith(
+        "No winners"
+      );
+    });
+
+    it("1 人参加且达标时获得全部奖池", async function () {
+      await fitCamp.connect(alice).joinCamp();
+      for (let i = 0; i < 7; i++) await fitCamp.connect(owner).checkIn(alice.address);
+      const campAddress = await fitCamp.getAddress();
+      expect(await usdc.balanceOf(campAddress)).to.equal(STAKE_AMOUNT);
+      const endTime = await fitCamp.roundEndTime(ROUND_ID);
+      await time.increaseTo(endTime + 1n);
+      const aliceBefore = await usdc.balanceOf(alice.address);
+      await fitCamp.connect(alice).settleAndWithdraw(ROUND_ID);
+      expect((await usdc.balanceOf(alice.address)) - aliceBefore).to.equal(STAKE_AMOUNT);
+      expect(await usdc.balanceOf(campAddress)).to.equal(0n);
+    });
+  });
+
+  describe("边界与安全：Fit NFT", function () {
+    it("Fit NFT 未设置时 claimFitNFT 应 revert", async function () {
+      await fitCamp.connect(alice).joinCamp();
+      for (let i = 0; i < 7; i++) await fitCamp.connect(owner).checkIn(alice.address);
+      const endTime = await fitCamp.roundEndTime(ROUND_ID);
+      await time.increaseTo(endTime + 1n);
+      await fitCamp.connect(owner).settleRound(ROUND_ID);
+      await expect(fitCamp.connect(alice).claimFitNFT(ROUND_ID)).to.be.revertedWith(
+        "FitNFT not set"
+      );
+    });
+
+    it("未达标者 claimFitNFT 应 revert", async function () {
+      const FitNFT = await ethers.getContractFactory("FitNFT");
+      const fitNFT = await FitNFT.deploy(await fitCamp.getAddress());
+      await fitNFT.waitForDeployment();
+      await fitCamp.setFitNFT(await fitNFT.getAddress());
+      await fitCamp.connect(alice).joinCamp();
+      await fitCamp.connect(bob).joinCamp();
+      for (let i = 0; i < 7; i++) await fitCamp.connect(owner).checkIn(alice.address);
+      const endTime = await fitCamp.roundEndTime(ROUND_ID);
+      await time.increaseTo(endTime + 1n);
+      await fitCamp.connect(owner).settleRound(ROUND_ID);
+      await expect(fitCamp.connect(bob).claimFitNFT(ROUND_ID)).to.be.revertedWith(
+        "Not a winner"
+      );
+    });
+
+    it("未结算时 claimFitNFT 应 revert", async function () {
+      const FitNFT = await ethers.getContractFactory("FitNFT");
+      const fitNFT = await FitNFT.deploy(await fitCamp.getAddress());
+      await fitNFT.waitForDeployment();
+      await fitCamp.setFitNFT(await fitNFT.getAddress());
+      await fitCamp.connect(alice).joinCamp();
+      for (let i = 0; i < 7; i++) await fitCamp.connect(owner).checkIn(alice.address);
+      const endTime = await fitCamp.roundEndTime(ROUND_ID);
+      await time.increaseTo(endTime + 1n);
+      await expect(fitCamp.connect(alice).claimFitNFT(ROUND_ID)).to.be.revertedWith(
+        "Round not settled"
+      );
+    });
+  });
 });

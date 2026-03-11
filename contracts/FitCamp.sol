@@ -127,6 +127,7 @@ contract FitCamp is Ownable {
     }
 
     // 5. 开启新一期（余数可不提现，自动滚入下一期奖金池）
+    // 若当期无人参加，再开新一期时期数不增加，只重置当前期结束时间并开放报名
     function startNewRound(uint256 _durationDays) external onlyOwner {
         require(block.timestamp >= roundEndTime[currentRoundId], "Current round not ended");
         require(isSettled[currentRoundId], "Current round not settled");
@@ -134,9 +135,14 @@ contract FitCamp is Ownable {
             winnersWithdrawnCount[currentRoundId] == winnersCount[currentRoundId],
             "Not all winners withdrawn"
         );
-        currentRoundId++;
-        roundEndTime[currentRoundId] = block.timestamp + (_durationDays * 1 days);
-        roundOpenForJoin[currentRoundId] = true;
+        if (participantList[currentRoundId].length == 0) {
+            roundEndTime[currentRoundId] = block.timestamp + (_durationDays * 1 days);
+            roundOpenForJoin[currentRoundId] = true;
+        } else {
+            currentRoundId++;
+            roundEndTime[currentRoundId] = block.timestamp + (_durationDays * 1 days);
+            roundOpenForJoin[currentRoundId] = true;
+        }
     }
 
     // 查询某期某用户
@@ -158,7 +164,23 @@ contract FitCamp is Ownable {
         fitNFT = _fitNFT;
     }
 
-    // 优胜者领取当期 Fit NFT（每期每人最多领 1 个）
+    // 群主为当期所有优胜者铸造并发放 Fit NFT（结束打卡后调用）
+    function mintFitNFTsForRound(uint256 _roundId) external onlyOwner {
+        require(fitNFT != address(0), "FitNFT not set");
+        require(block.timestamp >= roundEndTime[_roundId], "Round not ended");
+        require(isSettled[_roundId], "Round not settled");
+        address[] storage list = participantList[_roundId];
+        for (uint256 i = 0; i < list.length; i++) {
+            address w = list[i];
+            if (participants[_roundId][w].checkInCount >= 7 && !hasClaimedFitNFT[_roundId][w]) {
+                hasClaimedFitNFT[_roundId][w] = true;
+                uint256 tokenId = IFitNFT(fitNFT).mint(w, _roundId);
+                claimedFitNFTTokenId[_roundId][w] = tokenId;
+            }
+        }
+    }
+
+    // 优胜者自行领取当期 Fit NFT（每期每人最多领 1 个；若群主已通过 mintFitNFTsForRound 发放则无需调用）
     function claimFitNFT(uint256 _roundId) external {
         require(fitNFT != address(0), "FitNFT not set");
         require(block.timestamp >= roundEndTime[_roundId], "Round not ended");
