@@ -61,12 +61,16 @@
   - **hardhat.config.ts**：已有 `baseSepolia` 网络（chainId 84532），无需改。
 - **操作**：
   1. `npm run compile`
-  2. `npx hardhat run scripts/deploy.ts --network baseSepolia`
+  2. 部署（二选一）：
+     - **默认 7 天**：`npx hardhat run scripts/deploy.ts --network baseSepolia`
+     - **快速跑通第 0 期（1 天）**：`DURATION_DAYS=1 npx hardhat run scripts/deploy.ts --network baseSepolia`（第 0 期 1 天后即可结束打卡，你作为群主可尽快走通建群→报名→打卡→结束→开下一期）
   3. 控制台会输出 MockUSDC、FitCamp、FitNFT 地址；如需给测试账户发 USDC，需自己对 MockUSDC 调用 `mint`。
   4. 前端用测试网时：
      - `npm run export-web-config` 会生成/更新 `web/abis.json`，并创建占位 `web/addresses.base-sepolia.json`。
      - 把 `addresses.base-sepolia.json` 里的 `fitCamp`、`mockUsdc`、`fitNFT` 换成上面部署的地址，`chainId` 保持 84532。
      - 前端逻辑：当没有 `addresses.json`（本地）时，会请求 `addresses.base-sepolia.json`，并用 Base Sepolia RPC + 钱包连接（见 `web/app.js`）。
+
+**期数规则（简化）**：第 0 期天数由**部署时**参数决定（脚本里 `DURATION_DAYS` 或环境变量）；第 1 期起由**开下一期**时页面「打卡天数」下拉决定。不在界面上做「设置当期天数」，避免部署逻辑与运行逻辑混在一起。
 
 **换到测试网时**：  
 - 改 **.env**（RPC、PRIVATE_KEY）和 **web/addresses.base-sepolia.json**（合约地址、chainId）。  

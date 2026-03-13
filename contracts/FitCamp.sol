@@ -41,6 +41,13 @@ contract FitCamp is Ownable {
         roundOpenForJoin[_roundId] = true;
     }
 
+    // 0b. 群主在当期未结束前修改当期打卡天数（含第 0 期部署后的调整）
+    function setRoundDuration(uint256 _roundId, uint256 _durationDays) external onlyOwner {
+        require(_roundId <= currentRoundId, "Round does not exist");
+        require(block.timestamp < roundEndTime[_roundId], "Round already ended");
+        roundEndTime[_roundId] = block.timestamp + (_durationDays * 1 days);
+    }
+
     // 1. 缴纳定金（参加当期；须群主先开放该期报名）
     function joinCamp() external {
         uint256 round = currentRoundId;
@@ -53,11 +60,12 @@ contract FitCamp is Ownable {
         participantList[round].push(msg.sender);
     }
 
-    // 2. 群主确认打卡（当期）
-    function checkIn(address _user) external onlyOwner {
+    // 2. 会员自己打卡（当期）
+    function checkIn() external {
         uint256 round = currentRoundId;
         require(block.timestamp < roundEndTime[round], "Round over");
-        participants[round][_user].checkInCount += 1;
+        require(participants[round][msg.sender].hasStaked, "Not a participant");
+        participants[round][msg.sender].checkInCount += 1;
     }
 
     // 2b. 群主主动结算当期（期结束后调用，有获胜者时计算 rewardPerWinner）

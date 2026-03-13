@@ -16,13 +16,13 @@ async function main() {
   const usdcAddress = await usdc.getAddress();
   console.log("MockUSDC 部署地址:", usdcAddress);
 
-  // 2. 部署 FitCamp
-  const durationDays = 7; // 挑战天数，可按需修改
+  // 2. 部署 FitCamp（第 0 期天数 = 部署时参数；测试网想快速跑通可设 DURATION_DAYS=1）
+  const durationDays = process.env.DURATION_DAYS ? parseInt(process.env.DURATION_DAYS, 10) : 7;
   const FitCamp = await ethers.getContractFactory("FitCamp");
   const fitCamp = await FitCamp.deploy(usdcAddress, durationDays);
   await fitCamp.waitForDeployment();
   const fitCampAddress = await fitCamp.getAddress();
-  console.log("FitCamp 部署地址:", fitCampAddress);
+  console.log("FitCamp 部署地址:", fitCampAddress, "（第 0 期", durationDays, "天）");
 
   // 3. 部署 FitNFT，并设为 FitCamp 的 NFT 合约
   const FitNFT = await ethers.getContractFactory("FitNFT");

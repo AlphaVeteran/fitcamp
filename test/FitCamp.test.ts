@@ -62,8 +62,8 @@ describe("FitCamp (多期)", function () {
       expect(await usdc.balanceOf(campAddress)).to.equal(STAKE_AMOUNT * 3n);
 
       for (let i = 0; i < 7; i++) {
-        await fitCamp.connect(owner).checkIn(alice.address);
-        await fitCamp.connect(owner).checkIn(bob.address);
+        await fitCamp.connect(alice).checkIn();
+        await fitCamp.connect(bob).checkIn();
       }
 
       const aliceUser = await fitCamp.participants(ROUND_ID, alice.address);
@@ -92,8 +92,8 @@ describe("FitCamp (多期)", function () {
       await fitCamp.connect(bob).joinCamp();
       await fitCamp.connect(carol).joinCamp();
       for (let i = 0; i < 7; i++) {
-        await fitCamp.connect(owner).checkIn(alice.address);
-        await fitCamp.connect(owner).checkIn(bob.address);
+        await fitCamp.connect(alice).checkIn();
+        await fitCamp.connect(bob).checkIn();
       }
       const endTime = await fitCamp.roundEndTime(ROUND_ID);
       await time.increaseTo(endTime + 1n);
@@ -116,9 +116,9 @@ describe("FitCamp (多期)", function () {
       await fitCamp.connect(dave).joinCamp();
 
       for (let i = 0; i < 7; i++) {
-        await fitCamp.connect(owner).checkIn(alice.address);
-        await fitCamp.connect(owner).checkIn(bob.address);
-        await fitCamp.connect(owner).checkIn(carol.address);
+        await fitCamp.connect(alice).checkIn();
+        await fitCamp.connect(bob).checkIn();
+        await fitCamp.connect(carol).checkIn();
       }
 
       const campAddress = await fitCamp.getAddress();
@@ -151,8 +151,8 @@ describe("FitCamp (多期)", function () {
       await fitCamp.connect(bob).joinCamp();
       await fitCamp.connect(carol).joinCamp();
       for (let i = 0; i < 7; i++) {
-        await fitCamp.connect(owner).checkIn(alice.address);
-        await fitCamp.connect(owner).checkIn(bob.address);
+        await fitCamp.connect(alice).checkIn();
+        await fitCamp.connect(bob).checkIn();
       }
       const endTime = await fitCamp.roundEndTime(ROUND_ID);
       await time.increaseTo(endTime + 1n);
@@ -171,10 +171,31 @@ describe("FitCamp (多期)", function () {
     });
   });
 
+  describe("设置当期打卡天数", function () {
+    it("群主可在第 0 期未结束前调用 setRoundDuration 将结束时间改为 1/7/28 天", async function () {
+      const endTime0Before = await fitCamp.roundEndTime(ROUND_ID);
+      await fitCamp.connect(owner).setRoundDuration(ROUND_ID, 1);
+      const endTime0After = await fitCamp.roundEndTime(ROUND_ID);
+      expect(endTime0After).to.lt(endTime0Before);
+      const now = BigInt(await time.latest());
+      expect(endTime0After).to.equal(now + 1n * 24n * 3600n);
+      await fitCamp.connect(owner).setRoundDuration(ROUND_ID, 28);
+      const endTime28 = await fitCamp.roundEndTime(ROUND_ID);
+      expect(endTime28).to.gt(endTime0After);
+    });
+    it("当期已结束后 setRoundDuration 应 revert", async function () {
+      const endTime = await fitCamp.roundEndTime(ROUND_ID);
+      await time.increaseTo(endTime + 1n);
+      await expect(
+        fitCamp.connect(owner).setRoundDuration(ROUND_ID, 7)
+      ).to.be.revertedWith("Round already ended");
+    });
+  });
+
   describe("多期：开启新一期", function () {
     it("第 0 期结算并提走余数后，群主可 startNewRound，第 1 期可参加", async function () {
       await fitCamp.connect(alice).joinCamp();
-      for (let i = 0; i < 7; i++) await fitCamp.connect(owner).checkIn(alice.address);
+      for (let i = 0; i < 7; i++) await fitCamp.connect(alice).checkIn();
       const endTime = await fitCamp.roundEndTime(ROUND_ID);
       await time.increaseTo(endTime + 1n);
       await fitCamp.connect(alice).settleAndWithdraw(ROUND_ID);
@@ -202,9 +223,9 @@ describe("FitCamp (多期)", function () {
       await fitCamp.connect(carol).joinCamp();
       await fitCamp.connect(dave).joinCamp();
       for (let i = 0; i < 7; i++) {
-        await fitCamp.connect(owner).checkIn(alice.address);
-        await fitCamp.connect(owner).checkIn(bob.address);
-        await fitCamp.connect(owner).checkIn(carol.address);
+        await fitCamp.connect(alice).checkIn();
+        await fitCamp.connect(bob).checkIn();
+        await fitCamp.connect(carol).checkIn();
       }
       const endTime = await fitCamp.roundEndTime(ROUND_ID);
       await time.increaseTo(endTime + 1n);
@@ -232,8 +253,8 @@ describe("FitCamp (多期)", function () {
       await fitCamp.connect(alice).joinCamp();
       await fitCamp.connect(bob).joinCamp();
       for (let i = 0; i < 7; i++) {
-        await fitCamp.connect(owner).checkIn(alice.address);
-        await fitCamp.connect(owner).checkIn(bob.address);
+        await fitCamp.connect(alice).checkIn();
+        await fitCamp.connect(bob).checkIn();
       }
       const endTime = await fitCamp.roundEndTime(ROUND_ID);
       await time.increaseTo(endTime + 1n);
@@ -257,7 +278,7 @@ describe("FitCamp (多期)", function () {
   describe("多期：无人参加时不增加期数", function () {
     it("开启新一期后无人参加，再新开一期时期数不增加，只重置当前期结束时间", async function () {
       await fitCamp.connect(alice).joinCamp();
-      for (let i = 0; i < 7; i++) await fitCamp.connect(owner).checkIn(alice.address);
+      for (let i = 0; i < 7; i++) await fitCamp.connect(alice).checkIn();
       const endTime0 = await fitCamp.roundEndTime(ROUND_ID);
       await time.increaseTo(endTime0 + 1n);
       await fitCamp.connect(alice).settleAndWithdraw(ROUND_ID);
@@ -291,15 +312,12 @@ describe("FitCamp (多期)", function () {
         fitCamp,
         "OwnableUnauthorizedAccount"
       );
+      await expect(fitCamp.connect(carol).checkIn()).to.be.revertedWith("Not a participant");
       await fitCamp.connect(alice).joinCamp();
       await fitCamp.connect(bob).joinCamp();
-      await expect(fitCamp.connect(notOwner).checkIn(alice.address)).to.be.revertedWithCustomError(
-        fitCamp,
-        "OwnableUnauthorizedAccount"
-      );
       for (let i = 0; i < 7; i++) {
-        await fitCamp.connect(owner).checkIn(alice.address);
-        await fitCamp.connect(owner).checkIn(bob.address);
+        await fitCamp.connect(alice).checkIn();
+        await fitCamp.connect(bob).checkIn();
       }
       const endTime = await fitCamp.roundEndTime(ROUND_ID);
       await time.increaseTo(endTime + 1n);
@@ -358,9 +376,7 @@ describe("FitCamp (多期)", function () {
       await fitCamp.connect(alice).joinCamp();
       const endTime = await fitCamp.roundEndTime(ROUND_ID);
       await time.increaseTo(endTime + 1n);
-      await expect(fitCamp.connect(owner).checkIn(alice.address)).to.be.revertedWith(
-        "Round over"
-      );
+      await expect(fitCamp.connect(alice).checkIn()).to.be.revertedWith("Round over");
     });
 
     it("settleRound 在期未结束时应 revert", async function () {
@@ -393,7 +409,7 @@ describe("FitCamp (多期)", function () {
 
     it("startNewRound 有优胜者未提现时应 revert", async function () {
       await fitCamp.connect(alice).joinCamp();
-      for (let i = 0; i < 7; i++) await fitCamp.connect(owner).checkIn(alice.address);
+      for (let i = 0; i < 7; i++) await fitCamp.connect(alice).checkIn();
       const endTime = await fitCamp.roundEndTime(ROUND_ID);
       await time.increaseTo(endTime + 1n);
       await fitCamp.connect(owner).settleRound(ROUND_ID);
@@ -413,7 +429,7 @@ describe("FitCamp (多期)", function () {
 
     it("优胜者重复 settleAndWithdraw 应 revert (Invalid withdrawal)", async function () {
       await fitCamp.connect(alice).joinCamp();
-      for (let i = 0; i < 7; i++) await fitCamp.connect(owner).checkIn(alice.address);
+      for (let i = 0; i < 7; i++) await fitCamp.connect(alice).checkIn();
       const endTime = await fitCamp.roundEndTime(ROUND_ID);
       await time.increaseTo(endTime + 1n);
       await fitCamp.connect(alice).settleAndWithdraw(ROUND_ID);
@@ -424,7 +440,7 @@ describe("FitCamp (多期)", function () {
 
     it("settleRound 已结算后再调应 revert", async function () {
       await fitCamp.connect(alice).joinCamp();
-      for (let i = 0; i < 7; i++) await fitCamp.connect(owner).checkIn(alice.address);
+      for (let i = 0; i < 7; i++) await fitCamp.connect(alice).checkIn();
       const endTime = await fitCamp.roundEndTime(ROUND_ID);
       await time.increaseTo(endTime + 1n);
       await fitCamp.connect(owner).settleRound(ROUND_ID);
@@ -445,7 +461,7 @@ describe("FitCamp (多期)", function () {
 
     it("settleRoundWithNoWinners 当有优胜者时应 revert", async function () {
       await fitCamp.connect(alice).joinCamp();
-      for (let i = 0; i < 7; i++) await fitCamp.connect(owner).checkIn(alice.address);
+      for (let i = 0; i < 7; i++) await fitCamp.connect(alice).checkIn();
       const endTime = await fitCamp.roundEndTime(ROUND_ID);
       await time.increaseTo(endTime + 1n);
       await expect(
@@ -455,7 +471,7 @@ describe("FitCamp (多期)", function () {
 
     it("withdrawDust 未结算时应 revert", async function () {
       await fitCamp.connect(alice).joinCamp();
-      for (let i = 0; i < 7; i++) await fitCamp.connect(owner).checkIn(alice.address);
+      for (let i = 0; i < 7; i++) await fitCamp.connect(alice).checkIn();
       const endTime = await fitCamp.roundEndTime(ROUND_ID);
       await time.increaseTo(endTime + 1n);
       await expect(fitCamp.connect(owner).withdrawDust(ROUND_ID)).to.be.revertedWith(
@@ -467,8 +483,8 @@ describe("FitCamp (多期)", function () {
       await fitCamp.connect(alice).joinCamp();
       await fitCamp.connect(bob).joinCamp();
       for (let i = 0; i < 7; i++) {
-        await fitCamp.connect(owner).checkIn(alice.address);
-        await fitCamp.connect(owner).checkIn(bob.address);
+        await fitCamp.connect(alice).checkIn();
+        await fitCamp.connect(bob).checkIn();
       }
       const endTime = await fitCamp.roundEndTime(ROUND_ID);
       await time.increaseTo(endTime + 1n);
@@ -481,7 +497,7 @@ describe("FitCamp (多期)", function () {
 
     it("withdrawDust 合约余额为 0 时应 revert", async function () {
       await fitCamp.connect(alice).joinCamp();
-      for (let i = 0; i < 7; i++) await fitCamp.connect(owner).checkIn(alice.address);
+      for (let i = 0; i < 7; i++) await fitCamp.connect(alice).checkIn();
       const endTime = await fitCamp.roundEndTime(ROUND_ID);
       await time.increaseTo(endTime + 1n);
       await fitCamp.connect(alice).settleAndWithdraw(ROUND_ID);
@@ -520,7 +536,7 @@ describe("FitCamp (多期)", function () {
 
     it("1 人参加且达标时获得全部奖池", async function () {
       await fitCamp.connect(alice).joinCamp();
-      for (let i = 0; i < 7; i++) await fitCamp.connect(owner).checkIn(alice.address);
+      for (let i = 0; i < 7; i++) await fitCamp.connect(alice).checkIn();
       const campAddress = await fitCamp.getAddress();
       expect(await usdc.balanceOf(campAddress)).to.equal(STAKE_AMOUNT);
       const endTime = await fitCamp.roundEndTime(ROUND_ID);
@@ -535,7 +551,7 @@ describe("FitCamp (多期)", function () {
   describe("边界与安全：Fit NFT", function () {
     it("Fit NFT 未设置时 claimFitNFT 应 revert", async function () {
       await fitCamp.connect(alice).joinCamp();
-      for (let i = 0; i < 7; i++) await fitCamp.connect(owner).checkIn(alice.address);
+      for (let i = 0; i < 7; i++) await fitCamp.connect(alice).checkIn();
       const endTime = await fitCamp.roundEndTime(ROUND_ID);
       await time.increaseTo(endTime + 1n);
       await fitCamp.connect(owner).settleRound(ROUND_ID);
@@ -551,7 +567,7 @@ describe("FitCamp (多期)", function () {
       await fitCamp.setFitNFT(await fitNFT.getAddress());
       await fitCamp.connect(alice).joinCamp();
       await fitCamp.connect(bob).joinCamp();
-      for (let i = 0; i < 7; i++) await fitCamp.connect(owner).checkIn(alice.address);
+      for (let i = 0; i < 7; i++) await fitCamp.connect(alice).checkIn();
       const endTime = await fitCamp.roundEndTime(ROUND_ID);
       await time.increaseTo(endTime + 1n);
       await fitCamp.connect(owner).settleRound(ROUND_ID);
@@ -566,7 +582,7 @@ describe("FitCamp (多期)", function () {
       await fitNFT.waitForDeployment();
       await fitCamp.setFitNFT(await fitNFT.getAddress());
       await fitCamp.connect(alice).joinCamp();
-      for (let i = 0; i < 7; i++) await fitCamp.connect(owner).checkIn(alice.address);
+      for (let i = 0; i < 7; i++) await fitCamp.connect(alice).checkIn();
       const endTime = await fitCamp.roundEndTime(ROUND_ID);
       await time.increaseTo(endTime + 1n);
       await expect(fitCamp.connect(alice).claimFitNFT(ROUND_ID)).to.be.revertedWith(

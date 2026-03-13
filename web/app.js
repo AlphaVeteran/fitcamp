@@ -23,6 +23,7 @@
     var RPC = window.location.origin + "/rpc";
     var CHALLENGE_DAYS = 7;
     var isTestnetMode = false;
+    var walletModeOnLocal = false;
     var testnetSigner = null;
 
     // Hardhat 默认前 5 个账户私钥，与 init-local 部署时使用的完全一致（仅本地开发）
@@ -45,6 +46,34 @@
     var connectWalletWrap = document.getElementById("connectWalletWrap");
     var btnConnectWallet = document.getElementById("btnConnectWallet");
     var connectedAddressEl = document.getElementById("connectedAddress");
+    var CONNECT_WALLET_BTN_TEXT = "连接钱包 (Base Sepolia)";
+
+    function shortAddress(addr) {
+      if (!addr) return "";
+      var a = addr.slice(0, 2) === "0x" ? addr.slice(2) : addr;
+      return "0x" + a.slice(0, 6) + "…" + a.slice(-4);
+    }
+
+    function setConnectedWalletUI(connected) {
+      if (connected && testnetSigner) {
+        if (btnConnectWallet) {
+          btnConnectWallet.textContent = shortAddress(testnetSigner.address);
+          btnConnectWallet.disabled = true;
+          btnConnectWallet.style.display = "";
+        }
+        if (connectedAddressEl) connectedAddressEl.textContent = "";
+      } else {
+        if (btnConnectWallet) {
+          btnConnectWallet.textContent = CONNECT_WALLET_BTN_TEXT;
+          btnConnectWallet.disabled = false;
+          btnConnectWallet.style.display = "";
+        }
+        if (connectedAddressEl) connectedAddressEl.textContent = "";
+      }
+    }
+    var localWalletWrap = document.getElementById("localWalletWrap");
+    var btnConnectLocal = document.getElementById("btnConnectLocal");
+    var btnDisconnectLocal = document.getElementById("btnDisconnectLocal");
     var kPanel = document.getElementById("kPanel");
     var userPanel = document.getElementById("userPanel");
     var btnStart = document.getElementById("btnStart");
@@ -63,9 +92,11 @@
     var myFitNFTTip = document.getElementById("myFitNFTTip");
     var statusEl = document.getElementById("status");
     var txEl = document.getElementById("tx");
+    var chainLabelEl = document.getElementById("chainLabel");
 
     function getOwnerWallet() {
-      return isTestnetMode ? testnetSigner : wallets[0];
+      if ((isTestnetMode || walletModeOnLocal) && testnetSigner) return testnetSigner;
+      return wallets[0];
     }
 
     function deriveWallets() {
@@ -79,13 +110,13 @@
     }
 
     function currentWallet() {
-      if (isTestnetMode && testnetSigner) return testnetSigner;
+      if ((isTestnetMode || walletModeOnLocal) && testnetSigner) return testnetSigner;
       var k = userKey();
       return wallets[{ K: 0, A: 1, B: 2, C: 3, D: 4 }[k]];
     }
 
     function isK() {
-      if (isTestnetMode) return !!window._isK;
+      if (isTestnetMode || walletModeOnLocal) return !!window._isK;
       return userKey() === "K";
     }
 
@@ -112,6 +143,13 @@
         usdc = new ethers.Contract(addresses.mockUsdc, abis.MockUSDC, provider);
         if (userSelectWrap) userSelectWrap.style.display = "";
         if (connectWalletWrap) connectWalletWrap.style.display = "none";
+        if (localWalletWrap) localWalletWrap.style.display = walletModeOnLocal ? "none" : "block";
+        if (connectWalletWrap && walletModeOnLocal && testnetSigner) {
+          connectWalletWrap.style.display = "block";
+          userSelectWrap.style.display = "none";
+          setConnectedWalletUI(true);
+        }
+        if (btnConnectLocal) btnConnectLocal.onclick = connectWalletForLocal;
         return true;
       }
       var baseRes = await fetch("addresses.base-sepolia.json");
@@ -126,6 +164,8 @@
         usdc = new ethers.Contract(addresses.mockUsdc, abis.MockUSDC, provider);
         if (userSelectWrap) userSelectWrap.style.display = "none";
         if (connectWalletWrap) connectWalletWrap.style.display = "block";
+        if (localWalletWrap) localWalletWrap.style.display = "none";
+        if (btnDisconnectLocal) btnDisconnectLocal.style.display = "none";
         statusEl.textContent = "测试网模式 (Base Sepolia)。请连接钱包。";
         statusEl.className = "info";
         if (btnConnectWallet) {
@@ -161,8 +201,7 @@
         }
         var browserProvider = new ethers.BrowserProvider(window.ethereum);
         testnetSigner = await browserProvider.getSigner();
-        if (connectedAddressEl) connectedAddressEl.textContent = "已连接: " + testnetSigner.address.slice(0, 6) + "…" + testnetSigner.address.slice(-4);
-        if (btnConnectWallet) btnConnectWallet.style.display = "none";
+        setConnectedWalletUI(true);
         setTx("");
         uiStarted = true;
         refreshStatus();
@@ -171,15 +210,132 @@
       }
     }
 
+    async function connectWalletForLocal() {
+      if (!window.ethereum) {
+        setTx("请安装 MetaMask 或 Rabby 等钱包，用于模拟测试网操作。");
+        return;
+      }
+      setTx("连接中…");
+      try {
+        await window.ethereum.request({ method: "eth_requestAccounts" });
+        var chainId = await window.ethereum.request({ method: "eth_chainId" });
+        var wantChainId = "0x7a69";
+        if (chainId !== wantChainId) {
+          try {
+            await window.ethereum.request({
+              method: "wallet_switchEthereumChain",
+              params: [{ chainId: wantChainId }],
+            });
+          } catch (e) {
+            try {
+              await window.ethereum.request({
+                method: "wallet_addEthereumChain",
+                params: [{
+                  chainId: wantChainId,
+                  chainName: "Hardhat Local",
+                  rpcUrls: [window.location.origin + "/rpc"],
+                }],
+              });
+              await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: wantChainId }] });
+            } catch (e2) {
+              setTx("请手动在钱包中添加网络：链 ID 31337，RPC " + (window.location.origin + "/rpc"));
+              return;
+            }
+          }
+        }
+        var browserProvider = new ethers.BrowserProvider(window.ethereum);
+        testnetSigner = await browserProvider.getSigner();
+        walletModeOnLocal = true;
+        if (userSelectWrap) userSelectWrap.style.display = "none";
+        if (localWalletWrap) localWalletWrap.style.display = "none";
+        if (connectWalletWrap) connectWalletWrap.style.display = "block";
+        setConnectedWalletUI(true);
+        if (btnDisconnectLocal) btnDisconnectLocal.style.display = "";
+        setTx("已用钱包连接本地链，操作与测试网一致（需在钱包中确认交易）。");
+        uiStarted = true;
+        refreshStatus();
+      } catch (e) {
+        setTx("连接失败: " + (e.message || e));
+      }
+    }
+
+    function disconnectLocalWallet() {
+      testnetSigner = null;
+      walletModeOnLocal = false;
+      if (userSelectWrap) userSelectWrap.style.display = "";
+      if (localWalletWrap) localWalletWrap.style.display = "block";
+      if (connectWalletWrap) connectWalletWrap.style.display = "none";
+      if (btnDisconnectLocal) btnDisconnectLocal.style.display = "none";
+      setConnectedWalletUI(false);
+      setTx("");
+      refreshStatus();
+    }
+
+    async function tryRestoreWalletConnection() {
+      if (!window.ethereum || !isTestnetMode) return;
+      try {
+        var accounts = await window.ethereum.request({ method: "eth_accounts" });
+        if (!accounts || accounts.length === 0) return;
+        var chainId = await window.ethereum.request({ method: "eth_chainId" });
+        if (chainId !== "0x14a34") return;
+        var browserProvider = new ethers.BrowserProvider(window.ethereum);
+        testnetSigner = await browserProvider.getSigner();
+        if (connectWalletWrap) connectWalletWrap.style.display = "block";
+        setConnectedWalletUI(true);
+        if (btnDisconnectLocal) btnDisconnectLocal.style.display = "none";
+        refreshStatus();
+      } catch (_) {}
+    }
+
+    function setupWalletEvents() {
+      if (!window.ethereum) return;
+      window.ethereum.on("accountsChanged", function (accounts) {
+        if (!(isTestnetMode || walletModeOnLocal)) return;
+        if (!accounts || accounts.length === 0) {
+          testnetSigner = null;
+          refreshStatus();
+        } else {
+          (async function () {
+            try {
+              var browserProvider = new ethers.BrowserProvider(window.ethereum);
+              testnetSigner = await browserProvider.getSigner();
+              setConnectedWalletUI(true);
+              refreshStatus();
+            } catch (_) {
+              testnetSigner = null;
+              refreshStatus();
+            }
+          })();
+        }
+      });
+      window.ethereum.on("chainChanged", function () {
+        testnetSigner = null;
+        if (isTestnetMode || walletModeOnLocal) refreshStatus();
+      });
+    }
+
     function setTx(msg) {
       txEl.textContent = msg || "";
     }
 
+    function showConnectWalletUI() {
+      if (connectWalletWrap) connectWalletWrap.style.display = "block";
+      setConnectedWalletUI(false);
+      if (btnDisconnectLocal && walletModeOnLocal) btnDisconnectLocal.style.display = "none";
+    }
+
     async function refreshStatus() {
-      if (isTestnetMode && !testnetSigner) return;
+      if ((isTestnetMode || walletModeOnLocal) && !testnetSigner) {
+        showConnectWalletUI();
+        if (statusEl && isTestnetMode) {
+          statusEl.textContent = "测试网模式 (Base Sepolia)。请连接钱包。";
+          statusEl.className = "info";
+        }
+        return;
+      }
       var w = currentWallet();
       var addr = w.address;
-      if (isTestnetMode && testnetSigner) {
+      if ((isTestnetMode || walletModeOnLocal) && testnetSigner) {
         try {
           window._isK = (await fitCamp.owner()) === testnetSigner.address;
         } catch (_) {
@@ -196,8 +352,13 @@
       var challengeOver = false;
       var currentRoundId = 0;
       var withdrawableRoundId = null;
+      var isLocalChain = false;
 
       try {
+        var network = await provider.getNetwork();
+        var chainIdNum = Number(network.chainId);
+        isLocalChain = (chainIdNum === 31337);
+        if (chainLabelEl) chainLabelEl.textContent = isLocalChain ? "Local · 31337" : (chainIdNum === 84532 ? "Base Sepolia" : "Chain " + chainIdNum);
         var block = await provider.getBlock("latest");
         var now = block ? Number(block.timestamp) : 0;
         ethBalance = ethers.formatEther(await provider.getBalance(addr));
@@ -235,6 +396,7 @@
         }
         window._canStartNewRound = challengeOver && settled && wwc === wc;
         window._challengeOver = challengeOver;
+        window._isLocalChain = isLocalChain;
 
         if (myFitNFTList && addresses && addresses.fitNFT) {
           var nftList = [];
@@ -267,7 +429,7 @@
       }
 
       var lines = [
-        "当期: 第 " + currentRoundId + " 期",
+        "当期: 第 " + (currentRoundId + 1) + " 期",
         "地址: " + addr,
         "ETH: " + ethBalance,
         "USDC: " + usdcBalance,
@@ -290,9 +452,9 @@
         btnWithdrawDust.title = window._canWithdrawDust ? "" : "需本期已结算且所有获胜者已提现（或无获胜者时直接可提）、合约有余额时可用";
       }
       if (btnEnd) {
-        var endAllowed = isTestnetMode ? window._challengeOver : true;
-        btnEnd.disabled = !isK() || settled || !endAllowed;
-        btnEnd.title = settled ? "本期已结算，无需重复操作" : (isTestnetMode && !window._challengeOver ? "需等当期结束时间到达后再点（测试网按真实时间）" : "点击执行结算（本地将自动快进 7 天并结算）");
+        var endAllowed = isLocalChain || !isTestnetMode || window._challengeOver;
+        btnEnd.disabled = !isK() || settled;
+        btnEnd.title = settled ? "本期已结算，无需重复操作" : (!endAllowed ? "测试网需等当期结束时间到达后再点（点后会提示）" : "点击执行结算（本地将自动快进 7 天并结算）");
       }
       if (campPoolBalance) {
         if (isK()) {
@@ -325,7 +487,7 @@
         else if (challengeOver && !hasStaked) btnJoin.title = "本期已结束，请等待群主开启下一期";
         else btnJoin.title = "";
       }
-      btnCheckIn.disabled = !uiStarted || uiCheckInEnded || !hasStaked;
+      btnCheckIn.disabled = !window._roundOpenForJoin || challengeOver || !hasStaked;
       btnWithdraw.disabled = !canWithdraw;
       window._withdrawableRoundId = withdrawableRoundId;
     }
@@ -334,13 +496,27 @@
       var ok = await loadContracts();
       if (!ok) return;
 
+      setupWalletEvents();
+      if (isTestnetMode) await tryRestoreWalletConnection();
+
       btnStart.onclick = async function () {
-        uiStarted = true;
-        setTx("已开始打卡。");
         if (participantInfo) participantInfo.textContent = "加载中…";
-        refreshStatus();
         try {
           var roundId = Number(await fitCamp.currentRoundId());
+          var openForJoin = await fitCamp.roundOpenForJoin(roundId);
+          var roundEnd = Number(await fitCamp.roundEndTime(roundId));
+          var block = await provider.getBlock("latest");
+          var now = block ? Number(block.timestamp) : 0;
+          if (!openForJoin && now < roundEnd) {
+            setTx("正在开放本期报名（开始打卡）…");
+            var ownerWallet = getOwnerWallet();
+            var tx = await fitCamp.connect(ownerWallet).openRoundForJoin(roundId);
+            await tx.wait();
+            uiStarted = true;
+            setTx("已开始打卡，用户可缴纳定金并参与。");
+          } else {
+            setTx("已开始打卡。");
+          }
           var list = await fitCamp.getParticipantList(roundId);
           var lines = ["参与人数：" + list.length];
           for (var i = 0; i < list.length; i++) {
@@ -350,8 +526,10 @@
           }
           if (participantInfo) participantInfo.textContent = lines.join("\n");
         } catch (e) {
-          if (participantInfo) participantInfo.textContent = "获取参与列表失败: " + (e.message || e);
+          setTx("开始打卡失败: " + (e.message || e));
+          if (participantInfo) participantInfo.textContent = "";
         }
+        refreshStatus();
       };
 
       btnEnd.onclick = async function () {
@@ -363,9 +541,13 @@
           refreshStatus();
           return;
         }
+        if (!window._isLocalChain && !window._challengeOver) {
+          setTx("需等当期结束时间到达后再点（测试网按真实时间）。");
+          return;
+        }
         setTx("正在结束打卡并结算…");
         try {
-          if (!isTestnetMode) {
+          if (window._isLocalChain) {
             await provider.send("evm_increaseTime", [CHALLENGE_DAYS * 24 * 3600]);
             await provider.send("evm_mine", []);
           }
@@ -431,11 +613,10 @@
       };
 
       btnCheckIn.onclick = async function () {
-        var userAddr = currentWallet().address;
-        var ownerWallet = getOwnerWallet();
-        setTx("提交打卡中（由群主执行）…");
+        var signer = currentWallet();
+        setTx("提交打卡中…");
         try {
-          var tx = await fitCamp.connect(ownerWallet).checkIn(userAddr);
+          var tx = await fitCamp.connect(signer).checkIn();
           await tx.wait();
           setTx("打卡成功。");
         } catch (e) {
@@ -535,6 +716,7 @@
       }
 
       userSelect.onchange = refreshStatus;
+      if (btnDisconnectLocal) btnDisconnectLocal.onclick = disconnectLocalWallet;
       refreshStatus();
     }
 
