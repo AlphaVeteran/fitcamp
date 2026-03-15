@@ -45,6 +45,18 @@
     }
     .dapp-wallet select { padding: 8px 12px; font-size: 14px; border-radius: 8px; border: 1px solid #e5e7eb; }
     .dapp-wallet .info { font-size: 12px; color: #6b7280; margin: 0; }
+    .dapp-header button {
+      background: #0d9488;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .dapp-header button:hover:not(:disabled) { background: #0f766e; }
+    .dapp-header button:disabled { opacity: 0.5; cursor: not-allowed; }
 
     .dapp-main {
       max-width: 480px;
@@ -85,16 +97,13 @@
       min-width: 120px;
     }
     .card button:disabled { opacity: 0.5; cursor: not-allowed; }
-    .card button.primary {
+    .card button.primary,
+    .card button.secondary {
       background: #0d9488;
       color: #fff;
     }
-    .card button.primary:hover:not(:disabled) { background: #0f766e; }
-    .card button.secondary {
-      background: #f3f4f6;
-      color: #374151;
-    }
-    .card button.secondary:hover:not(:disabled) { background: #e5e7eb; }
+    .card button.primary:hover:not(:disabled),
+    .card button.secondary:hover:not(:disabled) { background: #0f766e; }
     .card .info {
       font-size: 13px;
       color: #6b7280;
