@@ -1,5 +1,11 @@
 # FitCamp
 
+**Live Demo (Base Sepolia):** [点击试用](https://your-username.github.io/fitcamp/)
+
+说明：请先安装 MetaMask 并切换到 Base Sepolia 网络，再连接钱包。
+
+---
+
 A **multi-round check-in challenge** DApp: users stake 100 USDC per round, complete 7 check-ins within the round period, and winners share the pool; the owner can settle, withdraw dust, and start new rounds.
 
 - **Stack**: Solidity (Hardhat), Node.js web UI with ethers.js, local chain or Base Sepolia.

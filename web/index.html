@@ -155,10 +155,13 @@
     <section class="card" id="userPanel">
       <div class="card-title">我的参与</div>
       <div class="btn-row">
+        <button id="btnApproveUsdc" type="button" class="secondary" title="首次参与前需授权 FitCamp 扣 100 USDC">授权 FitCamp（100 USDC）</button>
         <button id="btnJoin" class="primary">缴纳打卡定金</button>
         <button id="btnCheckIn" class="primary">打卡</button>
         <button id="btnWithdraw" class="primary">提现</button>
+        <button id="btnRefreshStatus" type="button" class="secondary" style="min-width:auto">刷新状态</button>
       </div>
+      <p id="userPanelHint" class="info" style="margin-top:8px; font-size:12px"></p>
     </section>
 
     <section class="card" id="kPanel">
@@ -178,6 +181,14 @@
       </div>
       <div id="participantInfo" class="info"></div>
       <div id="settlementResult" class="info"></div>
+      <div id="mintUsdcWrap" class="card-mint-usdc" style="display:none">
+        <div class="card-title" style="font-size:13px">测试网：给参与用户铸造 100 测试 USDC</div>
+        <div class="btn-row" style="flex-wrap:wrap; align-items:center; gap:8px">
+          <input type="text" id="mintUsdcAddress" placeholder="用户地址 0x…" style="flex:1; min-width:200px; padding:8px; font-size:13px" />
+          <button id="btnMintUsdc" type="button" class="secondary">铸造 100 USDC</button>
+        </div>
+        <p class="info" style="font-size:12px; margin-top:6px">铸造后请让该用户在页面或 Basescan 对 FitCamp 做一次 approve（授权），再缴纳定金。</p>
+      </div>
       <div class="btn-row">
         <button id="btnWithdrawDust" class="secondary">群主提现</button>
         <span id="withdrawDustTip" class="info">不提现则本期余额自动滚入下一期奖金池</span>
@@ -199,7 +210,7 @@
   </main>
 
   <footer class="dapp-footer">
-    若控制台出现 MetaMask/Rabby 的 ethereum 冲突提示，可忽略（本页使用本地链，不依赖钱包插件）。
+    Contact: <a href="https://x.com/AlphaVeteran0x" target="_blank" rel="noopener">X.com @AlphaVeteran0x</a> · <a href="https://warpcast.com/alphaveteran" target="_blank" rel="noopener">Farcaster @alphaveteran</a>
   </footer>
 
   <script src="app.js"></script>

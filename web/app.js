@@ -78,10 +78,16 @@
     var userPanel = document.getElementById("userPanel");
     var btnStart = document.getElementById("btnStart");
     var btnEnd = document.getElementById("btnEnd");
+    var btnApproveUsdc = document.getElementById("btnApproveUsdc");
     var btnJoin = document.getElementById("btnJoin");
     var btnCheckIn = document.getElementById("btnCheckIn");
     var btnWithdraw = document.getElementById("btnWithdraw");
+    var btnRefreshStatus = document.getElementById("btnRefreshStatus");
+    var userPanelHint = document.getElementById("userPanelHint");
     var btnWithdrawDust = document.getElementById("btnWithdrawDust");
+    var mintUsdcWrap = document.getElementById("mintUsdcWrap");
+    var btnMintUsdc = document.getElementById("btnMintUsdc");
+    var mintUsdcAddress = document.getElementById("mintUsdcAddress");
     var btnNewRound = document.getElementById("btnNewRound");
     var newRoundDurationSelect = document.getElementById("newRoundDuration");
     var currentRoundLabel = document.getElementById("currentRoundLabel");
@@ -156,7 +162,18 @@
       if (abiRes.ok && baseRes.ok) {
         addresses = await baseRes.json();
         abis = await abiRes.json();
-        RPC = "https://sepolia.base.org";
+        var fitCampAddr = addresses && addresses.fitCamp && String(addresses.fitCamp).trim();
+        var mockUsdcAddr = addresses && addresses.mockUsdc && String(addresses.mockUsdc).trim();
+        var fitNftAddr = addresses && addresses.fitNFT && String(addresses.fitNFT).trim();
+        if (!fitCampAddr || !mockUsdcAddr || !fitNftAddr) {
+          statusEl.textContent = "addresses.base-sepolia.json 缺少 fitCamp / mockUsdc / fitNFT 或为空，请检查配置。";
+          statusEl.className = "error";
+          return false;
+        }
+        addresses.fitCamp = fitCampAddr;
+        addresses.mockUsdc = mockUsdcAddr;
+        addresses.fitNFT = fitNftAddr;
+        RPC = (addresses && addresses.rpcUrl) ? addresses.rpcUrl : "https://sepolia.base.org";
         isTestnetMode = true;
         provider = new ethers.JsonRpcProvider(RPC);
         wallets = [];
@@ -318,6 +335,10 @@
       txEl.textContent = msg || "";
     }
 
+    function testnetTxOverrides() {
+      return isTestnetMode && addresses && addresses.chainId != null ? { chainId: addresses.chainId } : {};
+    }
+
     function showConnectWalletUI() {
       if (connectWalletWrap) connectWalletWrap.style.display = "block";
       setConnectedWalletUI(false);
@@ -371,7 +392,7 @@
         roundEndTime = Number(await fitCamp.roundEndTime(currentRoundId));
         settled = await fitCamp.isSettled(currentRoundId);
         challengeOver = now >= roundEndTime;
-        window._roundOpenForJoin = await fitCamp.roundOpenForJoin(currentRoundId);
+        window._roundOpenForJoin = !!(await fitCamp.roundOpenForJoin(currentRoundId));
 
         for (var r = 0; r <= currentRoundId; r++) {
           var end = Number(await fitCamp.roundEndTime(r));
@@ -430,6 +451,7 @@
 
       var lines = [
         "当期: 第 " + (currentRoundId + 1) + " 期",
+        "当期已开放报名: " + (window._roundOpenForJoin ? "是" : "否"),
         "地址: " + addr,
         "ETH: " + ethBalance,
         "USDC: " + usdcBalance,
@@ -465,6 +487,7 @@
           campPoolBalance.style.display = "none";
         }
       }
+      if (mintUsdcWrap) mintUsdcWrap.style.display = isK() && isTestnetMode ? "block" : "none";
       if (btnNewRound) {
         var canOpenCurrentRound = !window._roundOpenForJoin && !challengeOver;
         btnNewRound.disabled = (window._roundOpenForJoin && !challengeOver) || (challengeOver && !window._canStartNewRound);
@@ -483,13 +506,19 @@
 
       btnJoin.disabled = !window._roundOpenForJoin || hasStaked || challengeOver;
       if (btnJoin) {
-        if (!window._roundOpenForJoin && !challengeOver) btnJoin.title = "请等待群主先点「建立 FitCamp 群」开放报名";
+        if (!window._roundOpenForJoin && !challengeOver) btnJoin.title = "请等待群主先点「开始打卡」或「新建 FitCamp」开放报名";
         else if (challengeOver && !hasStaked) btnJoin.title = "本期已结束，请等待群主开启下一期";
         else btnJoin.title = "";
       }
       btnCheckIn.disabled = !window._roundOpenForJoin || challengeOver || !hasStaked;
       btnWithdraw.disabled = !canWithdraw;
       window._withdrawableRoundId = withdrawableRoundId;
+      if (userPanelHint) {
+        if (!isK() && !window._roundOpenForJoin && !challengeOver)
+          userPanelHint.textContent = "本期尚未开放报名（见上方「当前状态」）。请群主在群主界面点「开始打卡」并确认交易成功；或点「新建 FitCamp」开放报名。同一网络、同一合约下用户点「刷新状态」后即可缴纳定金。";
+        else
+          userPanelHint.textContent = "";
+      }
     }
 
     async function main() {
@@ -510,7 +539,7 @@
           if (!openForJoin && now < roundEnd) {
             setTx("正在开放本期报名（开始打卡）…");
             var ownerWallet = getOwnerWallet();
-            var tx = await fitCamp.connect(ownerWallet).openRoundForJoin(roundId);
+            var tx = await fitCamp.connect(ownerWallet).openRoundForJoin(roundId, testnetTxOverrides());
             await tx.wait();
             uiStarted = true;
             setTx("已开始打卡，用户可缴纳定金并参与。");
@@ -518,11 +547,10 @@
             setTx("已开始打卡。");
           }
           var list = await fitCamp.getParticipantList(roundId);
-          var lines = ["参与人数：" + list.length];
+          var lines = ["参与人数：" + list.length + "（每人已缴 100 USDC 定金）"];
           for (var i = 0; i < list.length; i++) {
             var addr = list[i];
-            var bal = await usdc.balanceOf(addr);
-            lines.push(displayNameForAddress(addr) + " => " + ethers.formatUnits(bal, 6) + " USDC");
+            lines.push(displayNameForAddress(addr) + " => 已缴 100 USDC 定金");
           }
           if (participantInfo) participantInfo.textContent = lines.join("\n");
         } catch (e) {
@@ -560,10 +588,10 @@
           }
           var ownerWallet = getOwnerWallet();
           if (winners > 0) {
-            var tx = await fitCamp.connect(ownerWallet).settleRound(roundId);
+            var tx = await fitCamp.connect(ownerWallet).settleRound(roundId, testnetTxOverrides());
             await tx.wait();
           } else {
-            var tx2 = await fitCamp.connect(ownerWallet).settleRoundWithNoWinners(roundId);
+            var tx2 = await fitCamp.connect(ownerWallet).settleRoundWithNoWinners(roundId, testnetTxOverrides());
             await tx2.wait();
           }
           setTx("已结束打卡并完成结算。");
@@ -571,7 +599,7 @@
             try {
               setTx("正在为优胜者铸造 Fit NFT…");
               var nextNonce = await provider.getTransactionCount(ownerWallet.address, "latest");
-              var mintTx = await fitCamp.connect(ownerWallet).mintFitNFTsForRound(roundId, { nonce: nextNonce });
+              var mintTx = await fitCamp.connect(ownerWallet).mintFitNFTsForRound(roundId, Object.assign({ nonce: nextNonce }, testnetTxOverrides()));
               await mintTx.wait();
               setTx("已结束打卡并完成结算，Fit NFT 已发放给优胜者。");
             } catch (mintErr) {
@@ -594,17 +622,48 @@
         refreshStatus();
       };
 
+      var STAKE_AMOUNT = 100n * 10n ** 6n;
+      if (btnApproveUsdc) {
+        btnApproveUsdc.onclick = async function () {
+          var signer = currentWallet();
+          if (!addresses || !addresses.fitCamp) {
+            setTx("配置异常，无法授权。");
+            return;
+          }
+          setTx("正在授权 FitCamp 使用 USDC…");
+          try {
+            var tx = await usdc.connect(signer).approve(addresses.fitCamp, ethers.MaxUint256, testnetTxOverrides());
+            await tx.wait();
+            setTx("已授权，可点「缴纳打卡定金」参与。");
+          } catch (e) {
+            setTx("授权失败: " + (e.message || e));
+          }
+          refreshStatus();
+        };
+      }
       btnJoin.onclick = async function () {
         var signer = currentWallet();
+        var balance = await usdc.balanceOf(signer.address);
+        if (balance < STAKE_AMOUNT) {
+          setTx("USDC 余额不足（需 100 USDC）。当前 " + ethers.formatUnits(balance, 6) + " USDC。请让群主从部署账户转入测试 USDC 到你的地址，或使用已持有 USDC 的账户。");
+          refreshStatus();
+          return;
+        }
         setTx("提交参加中…");
         try {
-          var tx = await fitCamp.connect(signer).joinCamp();
+          var tx = await fitCamp.connect(signer).joinCamp(testnetTxOverrides());
           await tx.wait();
           setTx("参加成功。");
         } catch (e) {
           var msg = e.message || String(e);
           if (msg.indexOf("Round ended") !== -1) {
             setTx("本期已结束，无法参加。请等待群主「开启新一期」后在新期参加。");
+          } else if (msg.indexOf("reverted") !== -1 && balance < STAKE_AMOUNT) {
+            setTx("USDC 余额不足（需 100 USDC）。请让群主转入测试 USDC 到你的地址。");
+          } else if (msg.indexOf("missing revert data") !== -1 || msg.indexOf("CALL_EXCEPTION") !== -1) {
+            setTx("请先点「授权 FitCamp（100 USDC）」再点「缴纳打卡定金」。");
+          } else if (msg.indexOf("reverted") !== -1 || msg.indexOf("Transfer") !== -1) {
+            setTx("参加失败（可能未授权）。请先点「授权 FitCamp（100 USDC）」再缴纳定金。");
           } else {
             setTx("参加失败: " + msg);
           }
@@ -616,7 +675,7 @@
         var signer = currentWallet();
         setTx("提交打卡中…");
         try {
-          var tx = await fitCamp.connect(signer).checkIn();
+          var tx = await fitCamp.connect(signer).checkIn(testnetTxOverrides());
           await tx.wait();
           setTx("打卡成功。");
         } catch (e) {
@@ -634,7 +693,7 @@
         }
         setTx("提现中（第 " + roundId + " 期）…");
         try {
-          var tx = await fitCamp.connect(signer).settleAndWithdraw(roundId);
+          var tx = await fitCamp.connect(signer).settleAndWithdraw(roundId, testnetTxOverrides());
           await tx.wait();
           setTx("提现成功。");
         } catch (e) {
@@ -654,7 +713,7 @@
           if (roundId === undefined) roundId = Number(await fitCamp.currentRoundId());
           setTx("群主提现（第 " + (roundId + 1) + " 期）…");
           try {
-            var tx = await fitCamp.connect(ownerWallet).withdrawDust(roundId);
+            var tx = await fitCamp.connect(ownerWallet).withdrawDust(roundId, testnetTxOverrides());
             await tx.wait();
             setTx("群主已提现。");
           } catch (e) {
@@ -681,7 +740,7 @@
           if (!window._roundOpenForJoin && !window._challengeOver) {
             setTx("正在开放本期报名…");
             try {
-              var tx = await fitCamp.connect(ownerWallet).openRoundForJoin(roundId);
+              var tx = await fitCamp.connect(ownerWallet).openRoundForJoin(roundId, testnetTxOverrides());
               await tx.wait();
               uiStarted = true;
               setTx("本期已开放报名，用户可缴纳定金参与。");
@@ -692,7 +751,7 @@
             var durationDays = newRoundDurationSelect ? Number(newRoundDurationSelect.value) : 7;
             setTx("建立新群 / 开启新一期（" + durationDays + " 天）…");
             try {
-              var tx = await fitCamp.connect(ownerWallet).startNewRound(durationDays);
+              var tx = await fitCamp.connect(ownerWallet).startNewRound(durationDays, testnetTxOverrides());
               await tx.wait();
               uiStarted = true;
               uiCheckInEnded = false;
@@ -717,6 +776,26 @@
 
       userSelect.onchange = refreshStatus;
       if (btnDisconnectLocal) btnDisconnectLocal.onclick = disconnectLocalWallet;
+      if (btnRefreshStatus) btnRefreshStatus.onclick = function () { setTx(""); refreshStatus(); };
+      if (btnMintUsdc) {
+        btnMintUsdc.onclick = async function () {
+          var addr = mintUsdcAddress && mintUsdcAddress.value ? mintUsdcAddress.value.trim() : "";
+          if (!addr || !ethers.isAddress(addr)) {
+            setTx("请填写有效的用户地址（0x 开头）。");
+            return;
+          }
+          setTx("正在铸造 100 测试 USDC…");
+          try {
+            var ownerWallet = getOwnerWallet();
+            var tx = await usdc.connect(ownerWallet).mint(addr, 100n * 10n ** 6n, testnetTxOverrides());
+            await tx.wait();
+            setTx("已向 " + addr.slice(0, 10) + "… 铸造 100 测试 USDC。请让该用户对 FitCamp 做 approve 后再缴纳定金。");
+          } catch (e) {
+            setTx("铸造失败: " + (e.message || e));
+          }
+          refreshStatus();
+        };
+      }
       refreshStatus();
     }
 

@@ -2,7 +2,24 @@
 
 当前 FitCamp 前端是**本地配置**：需要先跑 `npm run node`、`npm run init-local`、`npm run serve`，在浏览器打开 localhost:3000，用内置的 K/A/B/C 账户操作。这样只有你自己能在本机试用。
 
-若希望**任何人点开 GitHub 仓库就能试用界面**，需要把前端部署到线上，并让页面在「无本地链」时也能工作（测试网模式）。下面分两种方式说明。
+若希望**任何人点开链接就能试用界面**（网络开放测试），需要把前端部署到线上，并让页面在「无本地链」时加载测试网配置（Base Sepolia）。下面先列出几种**快捷域名/链接方式**，再写详细步骤。
+
+---
+
+## 快捷部署方式（拿一条可分享的链接）
+
+| 方式 | 得到的大致链接 | 操作简述 |
+|------|----------------|----------|
+| **GitHub Pages** | `https://<你的用户名>.github.io/fitcamp/` | 仓库 **Settings → Pages** → Source 选 **GitHub Actions** 或 **main** 分支，目录选 **/ (root)** 或 **/web**（见下）；保存后等几分钟。 |
+| **Vercel** | `https://fitcamp-xxx.vercel.app` | 打开 [vercel.com](https://vercel.com) → **Add New Project** → 导入本仓库 → **Root Directory** 填 `web`，**Build** 可留空（纯静态）→ Deploy。 |
+| **Netlify** | `https://xxx.netlify.app` | 打开 [netlify.com](https://netlify.com) → **Add site → Import from Git** → 选仓库 → **Publish directory** 填 `web`，无构建命令 → Deploy。 |
+| **Cloudflare Pages** | `https://fitcamp.pages.dev` | [dash.cloudflare.com](https://dash.cloudflare.com) → **Pages → Create project → Connect to Git** → 选仓库 → **Build output directory** 填 `web`，无 build 命令 → Save and Deploy。 |
+| **Surge.sh**（命令行） | `https://fitcamp-test.surge.sh` | 在项目根目录执行：`npx surge web/ fitcamp-test.surge.sh`（需先 `npm run export-web-config` 且 `web/` 内已有 `abis.json`、`addresses.base-sepolia.json`）。 |
+| **ngrok**（临时测试） | `https://xxx.ngrok.io` | 本地运行 `npm run serve` 后，另开终端执行 `npx ngrok http 3000`，用给出的 https 链接分享；关掉 serve/ngrok 后链接失效。 |
+
+**注意**：线上要能连 Base Sepolia，需在仓库的 `web/` 下已有 **`abis.json`** 和 **`addresses.base-sepolia.json`**（内含你部署的合约地址与 `chainId: 84532`）。若用 GitHub Pages 且站点根目录是**仓库根**，需让访问路径指向 `web`（例如 `https://xxx.github.io/fitcamp/` 且把 `web` 内容放到仓库根，或使用 Actions 把 `web/` 发布到 gh-pages 的根）。
+
+---
 
 ---
 

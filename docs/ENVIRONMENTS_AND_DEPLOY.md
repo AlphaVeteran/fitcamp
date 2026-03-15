@@ -64,17 +64,39 @@
   2. 部署（二选一）：
      - **默认 7 天**：`npx hardhat run scripts/deploy.ts --network baseSepolia`
      - **快速跑通第 0 期（1 天）**：`DURATION_DAYS=1 npx hardhat run scripts/deploy.ts --network baseSepolia`（第 0 期 1 天后即可结束打卡，你作为群主可尽快走通建群→报名→打卡→结束→开下一期）
-  3. 控制台会输出 MockUSDC、FitCamp、FitNFT 地址；如需给测试账户发 USDC，需自己对 MockUSDC 调用 `mint`。
-  4. 前端用测试网时：
-     - `npm run export-web-config` 会生成/更新 `web/abis.json`，并创建占位 `web/addresses.base-sepolia.json`。
-     - 把 `addresses.base-sepolia.json` 里的 `fitCamp`、`mockUsdc`、`fitNFT` 换成上面部署的地址，`chainId` 保持 84532。
-     - 前端逻辑：当没有 `addresses.json`（本地）时，会请求 `addresses.base-sepolia.json`，并用 Base Sepolia RPC + 钱包连接（见 `web/app.js`）。
+  3. 部署到 Base Sepolia 时会**自动**：向部署者铸造 1000 USDC 并授权 FitCamp、写入 `web/addresses.base-sepolia.json`，无需再手动填地址。
+  4. 前端用测试网时：先执行一次 `npm run export-web-config` 生成 `web/abis.json`（若尚未有）；`addresses.base-sepolia.json` 已由部署脚本写入。本地打开测试网页面时需**没有** `web/addresses.json`（临时移走或改名为 `addresses.json.bak`），再 `npm run serve` 打开 http://localhost:3000，即可加载测试网配置并「连接钱包」。
 
 **期数规则（简化）**：第 0 期天数由**部署时**参数决定（脚本里 `DURATION_DAYS` 或环境变量）；第 1 期起由**开下一期**时页面「打卡天数」下拉决定。不在界面上做「设置当期天数」，避免部署逻辑与运行逻辑混在一起。
+
+---
+
+#### 3a. 部署到 Base Sepolia 并自己完成前三期测试（清单）
+
+若你要**一个人**在 Base Sepolia 上部署并跑完**第 1～3 期**（含群主操作 + 可选以同一钱包参与当会员），按下面做即可，**无需改合约或前端业务代码**。
+
+| 步骤 | 操作 |
+|------|------|
+| 1. 环境变量 | 项目根目录创建 `.env`，写 `PRIVATE_KEY=你的部署钱包私钥`、`BASE_SEPOLIA_RPC_URL=https://sepolia.base.org`（或其它 Base Sepolia RPC）。 |
+| 2. 编译 | `npm run compile` |
+| 3. 导出 ABI（若还没有） | `npm run export-web-config`，确保有 `web/abis.json` |
+| 4. 部署（建议第 0 期 1 天） | `DURATION_DAYS=1 npx hardhat run scripts/deploy.ts --network baseSepolia`。脚本会部署 MockUSDC / FitCamp / FitNFT、给部署者 mint 1000 USDC 并授权、写入 `web/addresses.base-sepolia.json`。 |
+| 5. 本地打开测试网页 | 临时移走或重命名 `web/addresses.json`（避免前端优先用本地配置），再 `npm run serve`，浏览器打开 http://localhost:3000。页面会加载 `addresses.base-sepolia.json`，进入测试网模式。 |
+| 6. 连接钱包 | 点「连接钱包 (Base Sepolia)」，钱包切到 Base Sepolia（chainId 84532）。当前账户应为部署者（群主），且有 1000 USDC。 |
+| 7. 第 1 期（即合约第 0 期） | 点「开始打卡」开放报名 → 可选：同钱包点「缴纳打卡定金」当会员 → 群主可给会员「打卡」满 7 次 → **等 1 天**（真实时间）→ 点「结束打卡」→ 可选「群主提现」→ 点「新建 FitCamp」选「打卡天数」开启第 2 期。 |
+| 8. 第 2、3 期 | 重复：开放报名 → 参与/打卡 → **等 1 天**（若你开下一期时选 1 天）→ 结束打卡 → 群主提现 → 开启下一期。每期开下一期时在「打卡天数」里选 1 / 7 / 28 天。 |
+
+**说明**：测试网时间按链上时间走，不能像本地一样快进，所以每期至少要等所选天数。自测前三期若每期选 1 天，最少需约 3 天真实时间；若只验证流程，可只跑 1 期（第 0 期 1 天 + 结束打卡 + 开下一期）。
 
 **换到测试网时**：  
 - 改 **.env**（RPC、PRIVATE_KEY）和 **web/addresses.base-sepolia.json**（合约地址、chainId）。  
 - 合约与前端业务代码可不改。
+
+**RPC 报错（too many errors / rate limit）**：  
+- 官方 `https://sepolia.base.org` 有频率限制，容易出现 “RPC endpoint returned too many errors”。  
+- 在 **`web/addresses.base-sepolia.json`** 里增加字段 **`"rpcUrl"`**，改用备用 RPC，例如：  
+  `"rpcUrl": "https://base-sepolia-rpc.publicnode.com"` 或 `"https://base-sepolia.drpc.org"`。  
+- 保存后刷新页面，前端会使用该 RPC 读链数据；钱包仍连 Base Sepolia（chainId 84532），无需改网络。
 
 ---
 

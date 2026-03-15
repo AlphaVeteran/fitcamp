@@ -1,0 +1,7 @@
+{
+  "fitCamp": "0x70a42Ac4f1AA24779c6520E0be96c824F7433820",
+  "mockUsdc": "0x680E3dbf8fDBb8518969F0d4b1DC4ae9b55685ca",
+  "fitNFT": "0x1AE87fD21EB34F302215449e9cc4f2a70951eddA",
+  "chainId": 84532,
+  "rpcUrl": "https://base-sepolia-rpc.publicnode.com"
+}
