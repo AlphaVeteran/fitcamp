@@ -1,6 +1,6 @@
 # FitCamp
 
-**Live Demo (Base Sepolia):** [点击试用](https://your-username.github.io/fitcamp/)
+**Live Demo (Base Sepolia):** [点击试用](https://alphaveteran.github.io/fitcamp/)
 
 说明：请先安装 MetaMask 并切换到 Base Sepolia 网络，再连接钱包。
 

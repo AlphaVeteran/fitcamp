@@ -10,7 +10,7 @@
 
 | 方式 | 得到的大致链接 | 操作简述 |
 |------|----------------|----------|
-| **GitHub Pages** | `https://<你的用户名>.github.io/fitcamp/` | 仓库 **Settings → Pages** → Source 选 **GitHub Actions** 或 **main** 分支，目录选 **/ (root)** 或 **/web**（见下）；保存后等几分钟。 |
+| **GitHub Pages** | `https://<你的用户名>.github.io/fitcamp/` | 仓库 **Settings → Pages** → Source 选 **GitHub Actions**；推送 main 后自动部署（见 `.github/workflows/deploy-pages.yml`）。 |
 | **Vercel** | `https://fitcamp-xxx.vercel.app` | 打开 [vercel.com](https://vercel.com) → **Add New Project** → 导入本仓库 → **Root Directory** 填 `web`，**Build** 可留空（纯静态）→ Deploy。 |
 | **Netlify** | `https://xxx.netlify.app` | 打开 [netlify.com](https://netlify.com) → **Add site → Import from Git** → 选仓库 → **Publish directory** 填 `web`，无构建命令 → Deploy。 |
 | **Cloudflare Pages** | `https://fitcamp.pages.dev` | [dash.cloudflare.com](https://dash.cloudflare.com) → **Pages → Create project → Connect to Git** → 选仓库 → **Build output directory** 填 `web`，无 build 命令 → Save and Deploy。 |
@@ -55,7 +55,7 @@
    - 会在 `web/` 下生成 `abis.json`，并创建占位文件 `addresses.base-sepolia.json`。把其中的地址改为你在 Base Sepolia 上部署的合约地址后，可将 `web/abis.json` 与 `web/addresses.base-sepolia.json` 一并提交（见下方 .gitignore 说明）。
 
 3. **部署前端到静态托管**
-   - **GitHub Pages**：在仓库 Settings → Pages → Source 选 `main` 分支、根目录或 `web` 目录（若只有 `web` 作为站点根）；或使用 GitHub Actions 把 `web/` 推到 `gh-pages`。
+   - **GitHub Pages**（本仓库已配置）：在仓库 **Settings → Pages** → **Build and deployment** → Source 选 **GitHub Actions**（首次需手动选一次）。推送 `main` 后会自动运行 `.github/workflows/deploy-pages.yml`，将 `web/` 发布到 `https://<用户名>.github.io/fitcamp/`。
    - **Vercel / Netlify**：连接本仓库，把「站点根目录」或「发布目录」设为 `web`，部署即可。
    - 部署后得到 URL，例如 `https://your-username.github.io/fitcamp/` 或 `https://fitcamp-xxx.vercel.app`。
 
