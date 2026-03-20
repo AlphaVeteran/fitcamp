@@ -1,5 +1,8 @@
 /* global ethers */
 
+/** CampVault LP 演示与 Uniswap Trading API / MCP 对齐：Base Mainnet */
+const BASE_MAINNET_CHAIN_ID = 8453;
+
 const VAULT_ABI = [
   "function asset() view returns (address)",
   "function totalAssets() view returns (uint256)",
@@ -85,7 +88,10 @@ async function refreshStatus() {
     const network = await provider.getNetwork();
     const chainLabel = document.getElementById("chainLabel");
     if (chainLabel) {
-      chainLabel.textContent = Number(network.chainId) === 84532 ? "Base Sepolia" : "Chain " + network.chainId;
+      const cid = Number(network.chainId);
+      if (cid === BASE_MAINNET_CHAIN_ID) chainLabel.textContent = "Base Mainnet · " + cid;
+      else if (cid === 84532) chainLabel.textContent = "Base Sepolia · " + cid;
+      else chainLabel.textContent = "Chain " + cid;
     }
 
     const vaultAddrInput = document.getElementById("campVaultAddress");
@@ -211,11 +217,10 @@ async function main() {
     const baseUsdc = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
     const baseWeth = "0x4200000000000000000000000000000000000006";
 
-    // Base Sepolia chainId: 84532
-    var baseSepoliaChainId = 84532;
-
     return [
       "你是 CampVault Agent（MVP）。",
+      "",
+      "链：Base Mainnet（chainId / chain_id = " + BASE_MAINNET_CHAIN_ID + "）；与 Uniswap MCP 报价一致，勿使用 Base Sepolia（84532），Trading API 不支持。",
       "",
       "任务：为 7 天（Horizon = " + horizonDaysStr + "）单币 USDC 策略生成 Uniswap LP 建仓计划。",
       "你必须调用 Uniswap MCP 获取报价/路由（quote+route）。",
@@ -239,7 +244,7 @@ async function main() {
       "",
       "输出 schema（严格保持字段存在性；仅允许值为空/空数组/null；error 为空表示成功）：",
       '{',
-      '  "chainId": ' + baseSepoliaChainId + ',',
+      '  "chainId": ' + BASE_MAINNET_CHAIN_ID + ',',
       '  "pair": ["USDC","WETH"],',
       '  "feeTierOrPool": {"selected":"","candidates":[],"reason":""},',
       '  "quote": {"amountIn":"' + depStr + '","estimatedOut":"","minimumReceived":"","route":"","priceImpact":""},',
@@ -249,7 +254,7 @@ async function main() {
       '}',
       "",
       "MCP 工具调用指引（优先级从高到低）：",
-      "- 用 clawncher_uniswap_swap 生成 quote：设置 quote_only=true，token_in=" + baseUsdc + "，token_out=" + baseWeth + "，amount=" + depStr + "，chain_id=" + baseSepoliaChainId + "，slippage_bps=50。",
+      "- 用 clawncher_uniswap_swap 生成 quote：设置 quote_only=true，token_in=" + baseUsdc + "，token_out=" + baseWeth + "，amount=" + depStr + "，chain_id=" + BASE_MAINNET_CHAIN_ID + "，slippage_bps=50。",
       "- 从该 tool 的返回文本中解析出：estimatedOut、minimumReceived、priceImpact、route（放到 quote.route 里，允许是字符串或序列化后的结构）。",
       "计算要求：",
       "- lpPlan：使用 Uniswap AI skills，基于 7 天期限与风险 conservative，给出 tickLower/tickUpper 与 amountUSDCToSwap（单币入场先换部分 WETH）。",
