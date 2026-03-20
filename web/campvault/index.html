@@ -83,7 +83,8 @@
       margin-bottom: 12px;
     }
     .btn-row:last-child { margin-bottom: 0; }
-    button.primary, button.secondary {
+    button.primary, button.secondary,
+    a.primary {
       padding: 10px 16px;
       font-size: 14px;
       border-radius: 8px;
@@ -92,9 +93,17 @@
       font-weight: 500;
       min-width: 120px;
     }
+    a.primary {
+      display: inline-block;
+      text-decoration: none;
+      text-align: center;
+      box-sizing: border-box;
+    }
     button.primary, button.secondary { background: #0d9488; color: #fff; }
+    a.primary { background: #0d9488; color: #fff; }
     button.secondary { background: #e5e7eb; color: #1a1a1a; }
-    button.primary:hover:not(:disabled) { background: #0f766e; }
+    button.primary:hover:not(:disabled),
+    a.primary:hover { background: #0f766e; }
     button.secondary:hover:not(:disabled) { background: #d1d5db; }
     button:disabled { opacity: 0.5; cursor: not-allowed; }
     .info {
@@ -167,6 +176,24 @@
         <button id="btnApplyCampVaultConfig" class="primary">应用参数（固定策略约束）</button>
       </div>
       <div id="campVaultConfigSummary" class="info">—</div>
+    </section>
+
+    <section class="card">
+      <div class="card-title">真实链上 Swap（Base 主网 8453）</div>
+      <div class="info" style="margin-top:-2px;">
+        跳转 Uniswap 官方界面完成 <b>USDC → WETH</b>，用钱包签名广播；交易成功后到 BaseScan 复制 <b>txHash</b>，即可作为第三步可验证证据（本页不托管私钥、不代为发交易）。
+      </div>
+      <div class="btn-row" style="margin-top:10px;">
+        <a
+          class="primary"
+          href="https://app.uniswap.org/#/swap?chain=base&amp;inputCurrency=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913&amp;outputCurrency=0x4200000000000000000000000000000000000006"
+          target="_blank"
+          rel="noopener noreferrer"
+        >在 Uniswap 打开 USDC → WETH</a>
+      </div>
+      <div class="info" style="margin-top:8px;">
+        请确认钱包网络为 <b>Base</b>；兑换金额在 Uniswap 里填写（可与上方 Deposit 一致）。
+      </div>
     </section>
 
     <section class="card">
