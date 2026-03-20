@@ -160,16 +160,20 @@
     <section class="card" id="cardRound">
       <div class="card-title">当前期</div>
       <span id="currentRoundLabel">当前：第 1 期</span>
+      <div class="info" style="margin-top:6px">
+        <div id="currentRoundParticipantCount">当期参加人数：—</div>
+        <div id="currentRoundPoolTotal">奖金池总额：—</div>
+      </div>
     </section>
 
     <section class="card" id="userPanel">
       <div class="card-title">我的参与</div>
-      <div class="btn-row">
-        <button id="btnApproveUsdc" type="button" class="secondary" title="首次参与前需授权 FitCamp 扣 100 USDC">授权 FitCamp（100 USDC）</button>
-        <button id="btnJoin" class="primary">缴纳打卡定金</button>
-        <button id="btnCheckIn" class="primary">打卡</button>
-        <button id="btnWithdraw" class="primary">提现</button>
-        <button id="btnRefreshStatus" type="button" class="secondary" style="min-width:auto">刷新状态</button>
+      <div class="btn-row" style="flex-direction:column; align-items:stretch;">
+        <button id="btnJoin" class="primary" style="width:100%;">缴纳打卡定金</button>
+        <div class="btn-row" style="justify-content:space-between; width:100%; margin-top:10px;">
+          <button id="btnCheckIn" class="primary" style="flex:1;">打卡</button>
+          <button id="btnWithdraw" class="primary" style="flex:1;">提现</button>
+        </div>
       </div>
       <p id="userPanelHint" class="info" style="margin-top:8px; font-size:12px"></p>
     </section>

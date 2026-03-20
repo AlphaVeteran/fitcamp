@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FitCamp Vault LP</title>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.16.0/dist/ethers.umd.min.js" crossorigin></script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #fff;
+      color: #1a1a1a;
+      margin: 0;
+      min-height: 100vh;
+    }
+    .dapp-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-bottom: 1px solid #e5e7eb;
+      background: #fff;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .dapp-brand {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #1a1a1a;
+    }
+    .dapp-chain {
+      font-size: 12px;
+      color: #6b7280;
+      background: #f3f4f6;
+      padding: 6px 10px;
+      border-radius: 999px;
+    }
+    .dapp-wallet {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .dapp-wallet .info { font-size: 12px; color: #6b7280; margin: 0; }
+    .dapp-header button {
+      background: #0d9488;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .dapp-header button:hover:not(:disabled) { background: #0f766e; }
+    .dapp-header button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .dapp-main {
+      max-width: 520px;
+      margin: 0 auto;
+      padding: 24px 16px;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .card-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #6b7280;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+    .btn-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .btn-row:last-child { margin-bottom: 0; }
+    button.primary, button.secondary {
+      padding: 10px 16px;
+      font-size: 14px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-weight: 500;
+      min-width: 120px;
+    }
+    button.primary, button.secondary { background: #0d9488; color: #fff; }
+    button.secondary { background: #e5e7eb; color: #1a1a1a; }
+    button.primary:hover:not(:disabled) { background: #0f766e; }
+    button.secondary:hover:not(:disabled) { background: #d1d5db; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .info {
+      font-size: 13px;
+      color: #6b7280;
+      margin: 8px 0;
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+    .error { color: #dc2626; }
+    .success { color: #059669; }
+    input, select {
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #e5e7eb;
+      font-size: 14px;
+      width: 100%;
+    }
+    .field { margin-bottom: 12px; }
+    .field label {
+      font-size: 13px;
+      color: #6b7280;
+      display: block;
+      margin-bottom: 6px;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    @media (max-width: 520px) {
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header class="dapp-header">
+    <div class="dapp-wallet">
+      <div class="dapp-brand">FitCamp Vault LP</div>
+    </div>
+    <div class="dapp-wallet">
+      <button id="btnConnectWallet" class="primary">连接钱包</button>
+      <span id="connectedAddress" class="info"></span>
+    </div>
+  </header>
+
+  <main class="dapp-main">
+    <section class="card">
+      <div class="card-title">7 天策略 MVP（演示输入）</div>
+      <div class="grid-2">
+        <div class="field">
+          <label for="cvDeposit">Deposit</label>
+          <input id="cvDeposit" type="number" value="100" min="0" step="1" />
+          <div class="info" style="margin:6px 0 0 0;">USDC</div>
+        </div>
+        <div class="field">
+          <label for="cvHorizonDays">Horizon</label>
+          <input id="cvHorizonDays" type="number" value="7" min="1" step="1" />
+          <div class="info" style="margin:6px 0 0 0;">days</div>
+        </div>
+      </div>
+      <div class="field" style="margin-top:12px;">
+        <label for="cvRisk">Risk</label>
+        <select id="cvRisk">
+          <option value="conservative" selected>conservative</option>
+          <option value="medium">medium</option>
+        </select>
+      </div>
+      <div class="btn-row" style="margin-top:10px;">
+        <button id="btnApplyCampVaultConfig" class="primary">应用参数（固定策略约束）</button>
+      </div>
+      <div id="campVaultConfigSummary" class="info">—</div>
+    </section>
+
+    <section class="card">
+      <div class="card-title">Uniswap MCP：出发点（生成请求）</div>
+      <div class="info" style="margin-top:-2px;">
+        点击按钮会把 Deposit / Horizon / Risk 组织成一段可直接复制给「CampVault Agent」的请求文本。
+        MCP/Agent 负责：选池 + quote + 生成 LP 建仓计划（MVP 不强制执行 swap）。
+      </div>
+      <div class="btn-row" style="margin-top:12px;">
+        <button id="btnGenerateUniswapMcpRequest" class="primary" style="min-width:140px;">
+          一键：生成 Uniswap MCP 请求
+        </button>
+        <button id="btnCopyMcpRequest" class="secondary" style="min-width:140px;">复制</button>
+      </div>
+      <div class="field" style="margin-top:12px;">
+        <label for="mcpRequest">MCP 请求文本</label>
+        <textarea id="mcpRequest" rows="10" style="width:100%; padding:10px; border-radius:8px; border:1px solid #e5e7eb; font-size:13px; line-height:1.5;" placeholder="点击上方按钮生成请求…"></textarea>
+      </div>
+      <div id="mcpRequestHint" class="info" style="margin-top:6px;">—</div>
+    </section>
+
+    <section class="card">
+      <div class="card-title">Agent 输出展示（quote → LP → 可验证执行）</div>
+      <div class="info" style="margin-top:-2px;">
+        复制请求给「CampVault Agent」后，把 Agent 返回的 <b>单个 JSON 对象</b>粘贴到下方；点击解析后会把 quote/route、LP 计划、执行证据分三段展示。
+      </div>
+
+      <div class="field" style="margin-top:12px;">
+        <label for="agentJsonInput">Agent 返回 JSON（必须是一个对象）</label>
+        <textarea id="agentJsonInput" rows="8" style="width:100%; padding:10px; border-radius:8px; border:1px solid #e5e7eb; font-size:13px; line-height:1.5;" placeholder="把 Agent 的 JSON 粘贴到这里…"></textarea>
+      </div>
+
+      <div class="btn-row">
+        <button id="btnParseAgentJson" class="primary" style="min-width:140px;">解析并展示</button>
+        <button id="btnClearAgentJson" class="secondary" style="min-width:140px;">清空</button>
+      </div>
+
+      <div class="field">
+        <label>第一步：quote + route</label>
+        <div id="agentStage1Output" class="info">—</div>
+      </div>
+
+      <div class="field">
+        <label>第二步：LP 建仓计划参数</label>
+        <div id="agentStage2Output" class="info">—</div>
+      </div>
+
+      <div class="field">
+        <label>第三步：可验证执行证据</label>
+        <div id="agentStage3Output" class="info">—</div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="dapp-footer" style="text-align:center; padding:18px 16px; color:#6b7280; font-size:12px;">
+    Demo for Synthesis — FitCamp Vault LP
+  </footer>
+
+  <script src="./app.js"></script>
+</body>
+</html>
+

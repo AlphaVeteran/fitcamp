@@ -29,6 +29,15 @@ npm run serve
 
 **必须用上面的命令**（会启动带 RPC 代理的服务器）。浏览器打开：**http://localhost:3000**。若用 `npx serve web` 直接打开，会因 CORS 一直显示「加载中」。
 
+### CampVault 独立首页（新增）
+打开：**http://localhost:3000/campvault/**  
+在页面中填写已部署的 `CampVault` 合约地址后即可演示 CampVault：
+- `缴纳打卡定金`：Deposit（会先自动 approve USDC）
+- `提现（赎回全部份额）`：Redeem 全部 shares
+- `刷新状态`：读取 `totalAssets` 与你的份额余额
+
+该页面不显示 FitCamp 的“群主/用户”面板，仅用于展示 CampVault 合约交互与 7 天策略输入（演示输入不改变 FitCamp 合约逻辑）。
+
 ### 4. 使用说明
 
 - **当前用户**：选 K（群主）或 A、B、C。

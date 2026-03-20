@@ -85,6 +85,8 @@
     var btnRefreshStatus = document.getElementById("btnRefreshStatus");
     var userPanelHint = document.getElementById("userPanelHint");
     var btnWithdrawDust = document.getElementById("btnWithdrawDust");
+    var currentRoundParticipantCountEl = document.getElementById("currentRoundParticipantCount");
+    var currentRoundPoolTotalEl = document.getElementById("currentRoundPoolTotal");
     var mintUsdcWrap = document.getElementById("mintUsdcWrap");
     var btnMintUsdc = document.getElementById("btnMintUsdc");
     var mintUsdcAddress = document.getElementById("mintUsdcAddress");
@@ -411,9 +413,23 @@
           var campBalance = await usdc.balanceOf(addresses.fitCamp);
           window._canWithdrawDust = settled && wwc === wc && campBalance > 0n;
         window._campBalance = campBalance;
+
+          if (currentRoundPoolTotalEl) {
+            currentRoundPoolTotalEl.textContent = "奖金池总额：" + ethers.formatUnits(campBalance, 6) + " USDC";
+          }
+          if (currentRoundParticipantCountEl) {
+            try {
+              var plist = await fitCamp.getParticipantList(currentRoundId);
+              currentRoundParticipantCountEl.textContent = "当期参加人数：" + plist.length;
+            } catch (_) {
+              currentRoundParticipantCountEl.textContent = "当期参加人数：—";
+            }
+          }
         } else {
           window._canWithdrawDust = false;
           window._campBalance = 0n;
+          if (currentRoundPoolTotalEl) currentRoundPoolTotalEl.textContent = "奖金池总额：—";
+          if (currentRoundParticipantCountEl) currentRoundParticipantCountEl.textContent = "当期参加人数：—";
         }
         window._canStartNewRound = challengeOver && settled && wwc === wc;
         window._challengeOver = challengeOver;

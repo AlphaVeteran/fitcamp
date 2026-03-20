@@ -59,7 +59,12 @@ const server = http.createServer((req, res) => {
     serveFile(res, ETHERSPATH, "application/javascript");
     return;
   }
-  const filePath = path.join(WEB_DIR, path.normalize(url).replace(/^(\.\.(\/|\\))+/, ""));
+  const safeUrl = path.normalize(url).replace(/^(\.\.(\/|\\))+/, "");
+  let filePath = path.join(WEB_DIR, safeUrl);
+  // 若请求的是目录（如 /campvault/），回落到目录下的 index.html
+  if (url.endsWith("/")) {
+    filePath = path.join(filePath, "index.html");
+  }
   serveFile(res, filePath);
 });
 

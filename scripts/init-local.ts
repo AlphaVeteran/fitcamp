@@ -23,6 +23,13 @@ async function main() {
   const usdcAddress = await usdc.getAddress();
   console.log("MockUSDC 部署:", usdcAddress);
 
+  // 1.5 Deploy CampVault（复用同一份本地 MockUSDC）
+  const CampVault = await ethers.getContractFactory("CampVault");
+  const campVault = await CampVault.deploy(usdcAddress, K.address);
+  await campVault.waitForDeployment();
+  const campVaultAddress = await campVault.getAddress();
+  console.log("CampVault 部署:", campVaultAddress);
+
   // 2. Deploy FitCamp
   const FitCamp = await ethers.getContractFactory("FitCamp");
   const fitCamp = await FitCamp.deploy(usdcAddress, DURATION_DAYS);
@@ -74,6 +81,7 @@ async function main() {
       {
         fitCamp: fitCampAddress,
         mockUsdc: usdcAddress,
+        campVault: campVaultAddress,
         fitNFT: fitNFTAddress,
         chainId: 31337,
         accounts: {
@@ -95,6 +103,12 @@ async function main() {
       FitCamp: fitCampArtifact.abi,
       MockUSDC: usdcArtifact.abi,
       FitNFT: fitNFTArtifact.abi,
+      CampVault: JSON.parse(
+        fs.readFileSync(
+          path.join(__dirname, "..", "artifacts/contracts/CampVault.sol/CampVault.json"),
+          "utf8"
+        )
+      ).abi,
     })
   );
 
